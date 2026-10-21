@@ -103,7 +103,6 @@ function makeSession() {
   return { getItem: k => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k) };
 }
 const session = makeSession();
-session.setItem('agri_sb_cfg', JSON.stringify({ url: 'https://mock.supabase.co', key: 'MOCKKEY' }));
 const sandbox = {
   console, setTimeout, clearTimeout, setInterval, clearInterval,
   fetch: (u, o) => Promise.resolve(mockFetch(u, o)),
@@ -122,6 +121,7 @@ function run(file) {
 run('01-store.js');
 run('00-supabase.js');
 sandbox.SB = sandbox.__X.SB; sandbox.Store = sandbox.__X.Store; sandbox.buildSeed = sandbox.__X.buildSeed;
+sandbox.SB.cfg.url = 'https://mock.supabase.co'; sandbox.SB.cfg.key = 'MOCKKEY';   /* 接続設定のソース焼き込み化に伴い cfg へ直接注入 */
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failed = 0;

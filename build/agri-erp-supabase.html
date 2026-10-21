@@ -436,7 +436,6 @@ table.tb tr.row-danger:hover,table.tb tr.row-warn:hover{background:var(--green-5
           <input class="inp" type="password" id="loginPw" autocomplete="current-password" placeholder="パスワード">
         </div>
         <div class="login-err" id="loginErr" style="display:none"></div>
-        <div id="sbSetup" style="display:none;text-align:left"></div>
         <button class="btn primary block" style="padding:12px" id="loginBtn" onclick="Auth.onLogin()">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
           ログイン
@@ -546,16 +545,21 @@ table.tb tr.row-danger:hover,table.tb tr.row-warn:hover{background:var(--green-5
      supabase-js が読み込めない環境では45秒ポーリングにフォールバック。
    - 認証は Postgres 関数 app_verify_login（pgcrypto bcrypt）でサーバー側照合。
      パスワードハッシュはクライアントに送らない。
-   - 未設定時はログイン画面に接続設定フォームを表示（?sb_url=&sb_key= でも設定可）
+   - 接続設定（Project URL / Anon Key）は下記 FIXED_URL / FIXED_KEY に**アプリ内部で固定**。
+     利用者による入力フォーム・URLパラメータ指定は廃止（配布先PCでも初期設定不要）。
    ========================================================================== */
 'use strict';
 const SB = (() => {
-  const CFG_KEY = 'agri_sb_cfg';
-  const cfg = { url: '', key: '', realtime: true, pollSec: 45 };
+  /* ---------- 接続設定（アプリ内部に固定・ソース焼き込み） ----------
+     この2つの定数に本番の Supabase プロジェクト情報を記入して再ビルドする
+     （python3 build/assemble.py）。利用者はログインIDとパスワードのみで利用できる。 */
+  const FIXED_URL = 'SUPABASE_PROJECT_URL_HERE';   // ← 例: https://xxxxxxxx.supabase.co（未設定なら空文字）
+  const FIXED_KEY = 'SUPABASE_ANON_KEY_HERE';      // ← 例: eyJhbGciOi...（Anon Key / Publishable Key どちらも可）
+  const cfg = { url: FIXED_URL, key: FIXED_KEY, realtime: true, pollSec: 45 };
   const api = {
     cfg, ready: false, transport: '', lastSyncAt: null, lastError: null,
     TABLES: null, verifyLogin: null, setPassword: null, init: null,
-    requestSync: null, reseedAll: null, renderSetup: null
+    requestSync: null, reseedAll: null
   };
 
   /* ---------- テーブル対応表（arr=Store.dbの配列名 / t=Postgresのテーブル名） ----------
@@ -868,20 +872,17 @@ const SB = (() => {
     return db;
   }
   function readCfg() {
-    try {
-      const q = new URLSearchParams(location.search);
-      const u = q.get('sb_url'), k = q.get('sb_key');
-      if (u && k) { const c = { url: u, key: k }; sessionStorage.setItem(CFG_KEY, JSON.stringify(c)); return c; }
-      const raw = sessionStorage.getItem(CFG_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch (e) {}
-    if (cfg.url && cfg.key) return { url: cfg.url, key: cfg.key };
-    return null;
+    /* 接続情報はソース内固定（FIXED_URL / FIXED_KEY）。
+       入力フォーム・?sb_url=&sb_key= パラメータ・sessionStorage は廃止。
+       定数が未記入（プレースホルダのまま・空）の場合は未設定として扱う */
+    const u = String(cfg.url || ''), k = String(cfg.key || '');
+    if (!u || !k || u.includes('SUPABASE_PROJECT_URL_HERE') || k.includes('SUPABASE_ANON_KEY_HERE')) return null;
+    return { url: u, key: k };
   }
 
   async function init() {
     const c = readCfg();
-    if (!c || !c.url || !c.key) return { ok: false, reason: 'config', message: 'SupabaseのURLとAnon Keyが未設定です。接続設定を行ってください' };
+    if (!c || !c.url || !c.key) return { ok: false, reason: 'config', message: '接続設定（FIXED_URL / FIXED_KEY）が未設定です。src/00-supabase.js にSupabaseプロジェクトのURLとAnon Keyを記入して再ビルドしてください' };
     cfg.url = String(c.url).replace(/\/$/, ''); cfg.key = c.key;
     try {
       const users = await req(sel('users'));
@@ -942,28 +943,10 @@ const SB = (() => {
     }
   }
 
-  /* ---------- 接続設定フォーム ---------- */
-  function renderSetup() {
-    const box = document.getElementById('sbSetup');
-    if (!box) return;
-    box.style.display = 'block';
-    box.innerHTML =
-      '<div class="field"><label>Supabase Project URL</label><input class="inp" id="sbUrl" placeholder="https://xxxxxxxx.supabase.co" value="' + (cfg.url || '') + '"></div>' +
-      '<div class="field"><label>Anon (public) Key</label><input class="inp" id="sbKey" placeholder="eyJhbGciOi..." value="' + (cfg.key || '') + '"></div>' +
-      '<button class="btn primary block" style="padding:11px;margin-top:4px" onclick="SB.saveSetup()">接続して保存</button>' +
-      '<p style="font-size:10.5px;color:#94a3b8;margin-top:10px;line-height:1.7">プロジェクトURLとAnon Keyは Supabase ダッシュボード（Settings → API）で確認できます。同梱の <b>sql/01_create_tables.sql</b> を SQL Editor で実行してから接続してください。</p>';
-  }
-  function saveSetup() {
-    const u = (document.getElementById('sbUrl') || {}).value || '';
-    const k = (document.getElementById('sbKey') || {}).value || '';
-    if (!/^https:\/\/.+/.test(u.trim()) || !k.trim()) {
-      const err = document.getElementById('loginErr');
-      if (err) { err.textContent = 'Project URL（https://〜）とAnon Keyの両方を入力してください'; err.style.display = 'block'; }
-      return;
-    }
-    sessionStorage.setItem(CFG_KEY, JSON.stringify({ url: u.trim(), key: k.trim() }));
-    location.reload();
-  }
+  /* ---------- 接続設定フォーム（廃止） ----------
+     接続情報は FIXED_URL / FIXED_KEY に固定したため、URL / API Key の入力フォーム・
+     「接続して保存」ボタン・sessionStorage 保持は削除した。利用者はログインIDと
+     パスワードのみで利用する。 */
 
   api.TABLES = TABLES;
   api.init = init;
@@ -973,8 +956,6 @@ const SB = (() => {
   api.verifyLogin = verifyLogin;
   api.setPassword = setPassword;
   api.pushAudit = pushAudit;
-  api.renderSetup = renderSetup;
-  api.saveSetup = saveSetup;
   api.refreshAll = refreshAll;
   api.rowFromDb = rowFromDb;
   api.rowToDb = rowToDb;
@@ -3685,11 +3666,10 @@ const Actions = {
 /* ------------------------------ 起動 ------------------------------ */
 (async function boot() {
   const err = document.getElementById('loginErr');
-  /* Supabase 接続（未設定時はログイン画面に接続設定フォームを表示） */
+  /* Supabase 接続（接続情報はアプリ内部固定・FIXED_URL / FIXED_KEY。入力フォームは廃止済み） */
   const sb = await SB.init();
   if (!sb.ok) {
     if (err) { err.textContent = sb.message || 'Supabaseに接続できませんでした'; err.style.display = 'block'; }
-    if (sb.reason === 'config' || sb.reason === 'connect') SB.renderSetup();
     return;
   }
   Store.load();

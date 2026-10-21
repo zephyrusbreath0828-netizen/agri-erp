@@ -70,13 +70,13 @@
 
 `build/agri-erp-supabase.html` をダブルクリックで開く（file:// でも動作する）。ソース一式の `index.html` は開発用で、src/ フォルダと併せて配置すれば単独でも起動する。
 
-## 6. 初回接続設定
+## 6. 接続設定（ソース焼き込み・利用者の入力は不要）
 
-1. アプリにアクセスすると、ログイン画面に「Supabase 接続設定」フォームが表示される。
-2. 手順2で控えた **Project URL** と **API Key**（Anon Key または Publishable Key）を入力し「接続して保存」を押す。画面が再読み込みされ、ログイン画面が表示される。
-3. 接続設定はブラウザのセッション単位で保持される（localStorage 不使用のため）。ブラウザを閉じた後の再入力を省くには、次のいずれかにする:
-   - 配置URLに `?sb_url=<Project URL>&sb_key=<Anon Key>` を付けたリンクを共有する
-   - `src/00-supabase.js` の `cfg` に URL / Key を直接記入して再ビルド（`python3 build/assemble.py`）してから配置する
+接続設定（Project URL / API Key）は `src/00-supabase.js` 冒頭の `FIXED_URL` / `FIXED_KEY` に**アプリ内部で固定**する（ログイン画面の入力フォーム・`?sb_url=` URLパラメータは廃止済み）。
+
+1. `src/00-supabase.js` の `FIXED_URL`（例: `https://xxxxxxxx.supabase.co`）と `FIXED_KEY`（Anon Key または Publishable Key）を記入する。
+2. `python3 build/assemble.py` で再ビルドし、`build/agri-erp-supabase.html`（または .aspx）を配置する。
+3. 利用者はログインIDとパスワードのみで利用できる。配布先PCでの初期設定は不要。
 
 ## 7. ログインと初期設定
 
@@ -100,7 +100,7 @@
 
 | 症状 | 原因と対処 |
 |---|---|
-| ログイン画面に接続設定フォームが出続ける | URL / Anon Key 未入力または誤り。Settings → API で再確認 |
+| 「接続設定（FIXED_URL / FIXED_KEY）が未設定です」と表示される | `src/00-supabase.js` の FIXED_URL / FIXED_KEY が未記入。記入して `python3 build/assemble.py` で再ビルドする |
 | 「Supabaseに接続できませんでした」 | 01_create_tables.sql 未実行、または Project URL 誤り。SQL Editor 実行状況を確認 |
 | ログインできない（パスワードが一致しません） | 02_seed.sql 未実行でユーザー未登録の可能性。SQL Editor で users テーブルを確認 |
 | 変更が他端末に反映されない | Realtime 未有効の可能性。Database → Publications で supabase_realtime に全テーブルが登録済みか確認（未登録の場合は本スクリプト再実行）。登録済みなら45秒以内のポーリングで反映される |

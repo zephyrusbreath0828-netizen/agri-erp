@@ -851,11 +851,10 @@ const Actions = {
 /* ------------------------------ 起動 ------------------------------ */
 (async function boot() {
   const err = document.getElementById('loginErr');
-  /* Supabase 接続（未設定時はログイン画面に接続設定フォームを表示） */
+  /* Supabase 接続（接続情報はアプリ内部固定・FIXED_URL / FIXED_KEY。入力フォームは廃止済み） */
   const sb = await SB.init();
   if (!sb.ok) {
     if (err) { err.textContent = sb.message || 'Supabaseに接続できませんでした'; err.style.display = 'block'; }
-    if (sb.reason === 'config' || sb.reason === 'connect') SB.renderSetup();
     return;
   }
   Store.load();

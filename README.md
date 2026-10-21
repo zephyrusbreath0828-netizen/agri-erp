@@ -62,10 +62,9 @@ agri-erp-supabase/
 
 1. **Supabase プロジェクト作成**（無料プランで可）
 2. **SQL Editor で実行**: `sql/01_create_tables.sql` → 続けて `sql/02_seed.sql`
-3. **アプリを配置して接続設定**: `build/agri-erp-supabase.aspx`（または .html）を配置し、
-   初回アクセス時に表示される接続設定フォームで Project URL と API Key を入力
-   （Anon Key `eyJ...` ／ Publishable Key `sb_publishable_...` のどちらでも可。Settings → API Keys で確認）
-   （または URL に `?sb_url=https://xxxx.supabase.co&sb_key=<キー>` を付けてアクセス）
+3. **接続設定を焼き込んで再ビルド**: `src/00-supabase.js` 冒頭の `FIXED_URL` / `FIXED_KEY` に
+   本番の Project URL と API Key（Anon Key `eyJ...` ／ Publishable Key `sb_publishable_...` のどちらでも可。Settings → API Keys で確認）を記入し、`python3 build/assemble.py` で再ビルド
+   → 利用者の入力は**ログインIDとパスワードのみ**。配布先PCでも初期設定は不要
    ※ 配置・動作確認には必ず **build/ 配下の単一ファイル**を使う。src/index.html は開発用（src/ を個別読み込み）。
 
 初期アカウント（いずれも初回ログイン時にパスワード変更が必須）:
@@ -87,13 +86,17 @@ admin / office / shipping のパスワードが `Temp1234!` に再設定され�
 
 詳細手順は **Supabaseセットアップ手順書** を参照してください。
 
-## 接続設定の保持について
+## 接続設定について（ソース焼き込み・入力フォーム廃止）
 
-接続設定（URL・Anon Key）はブラウザの sessionStorage に保持されます（localStorage 不使用のため）。
-ブラウザを閉じると再入力が必要になります。恒常運用では、配置前に `src/00-supabase.js` 冒頭の
-`SB_CFG` 相当の設定を直接書くか、配置URLに `?sb_url=&sb_key=` を含める方式（ブックマーク/リンク共有）を推奨します。
-設定をソースに焼き込む場合は `src/00-supabase.js` 内 `cfg` の `url` / `key` に記入して再ビルド:
-`python3 build/assemble.py`
+接続設定（Supabase Project URL / Anon Key）は `src/00-supabase.js` 冒頭の `FIXED_URL` / `FIXED_KEY` に
+**アプリ内部に固定**してあります。ログイン画面のURL入力欄・API Key入力欄・「接続して保存」ボタン、
+URLパラメータ（`?sb_url=&sb_key=`）・sessionStorage 保持は廃止済みです。利用者はログインIDとパスワードのみ入力します。
+
+接続設定の変更手順:
+
+1. `src/00-supabase.js` の `FIXED_URL`（例: `https://xxxxxxxx.supabase.co`）と `FIXED_KEY`（Anon Key）を書き換える
+2. `python3 build/assemble.py` で再ビルド
+3. `build/agri-erp-supabase.html`（または .aspx）を配置し直す — 配布先PCでの初期設定は不要
 
 ## セキュリティ上の注意
 
