@@ -14,8 +14,8 @@ const SB = (() => {
   /* ---------- 接続設定（アプリ内部に固定・ソース焼き込み） ----------
      この2つの定数に本番の Supabase プロジェクト情報を記入して再ビルドする
      （python3 build/assemble.py）。利用者はログインIDとパスワードのみで利用できる。 */
-  const FIXED_URL = 'SUPABASE_PROJECT_URL_HERE';   // ← 例: https://xxxxxxxx.supabase.co（未設定なら空文字）
-  const FIXED_KEY = 'SUPABASE_ANON_KEY_HERE';      // ← 例: eyJhbGciOi...（Anon Key / Publishable Key どちらも可）
+  const FIXED_URL = 'https://taoqurqqradqaisbpsoa.supabase.co';   // ← 例: https://xxxxxxxx.supabase.co（未設定なら空文字）
+  const FIXED_KEY = 'sb_publishable_1iaZ2xPzKn7qogrWWPw5tg_DNEeCtyi';      // ← 例: eyJhbGciOi...（Anon Key / Publishable Key どちらも可）
   const cfg = { url: FIXED_URL, key: FIXED_KEY, realtime: true, pollSec: 45 };
   const api = {
     cfg, ready: false, transport: '', lastSyncAt: null, lastError: null,
