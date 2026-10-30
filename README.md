@@ -219,3 +219,27 @@ node scripts/shipsearch_smoke.js   # 出荷検索 25項目
 ```
 node scripts/tpl_preview_smoke.js   # 帳票テンプレート編集（画面構成・6帳票・即時反映・拠点3モード・PDF・移行）
 ```
+
+## マルチテナント（複数組織）対応 ver 3.4
+
+1つの Supabase を複数組織で共用できるよう、**組織（テナント）** を最上位に追加しました。
+
+- 階層：**組織 → 会社 → 拠点**（既存の会社・拠点マスタ／帳票テンプレートはそのまま）
+- `organizations` テーブル（id / organization_code / organization_name / is_active）＋ 初期組織 `SETOLAS(1)` `A-FARM(2)` `B-FARM(3)`
+- `users.organization_id`（必須・FK）と `users.is_system_admin`
+- 業務テーブル19個へ `organization_id` を追加（customers / suppliers / items / stock_movements / orders / shipments / purchase_orders / receipts / documents ほか明細・採番・監査ログ）
+- **フロント**：ログイン時に `Store.db` を自組織のみへスコープ。新規登録は `organization_id` を自動付与
+- **DB**：全テーブルで RLS 有効＋`tenant_isolation` ポリシー、`app_login` のセッショントークン（`x-app-token`）で認可。越境書込は `with check` とトリガで拒否
+- **既存データ**：`sql/08_multi_tenant.sql` 実行で全行を `SETOLAS(1)` へ自動移行
+- **管理**：システム管理者のみ「組織マスタ」（追加・編集・停止）
+
+### 適用
+```
+sql/08_multi_tenant.sql   -- Supabase SQL Editor で実行（冪等）
+build/agri-erp-supabase.html を差し替え
+```
+
+### 検証
+```
+node scripts/tenant_smoke.js   # 組織隔離・自動付与・組織管理・移行・RLS定義
+```
