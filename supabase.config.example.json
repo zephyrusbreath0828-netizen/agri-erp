@@ -1,0 +1,5 @@
+{
+  "_comment": "環境変数が使えない静的ホスティング用。このファイルを supabase.config.json にコピーして値を入れる（Git管理外）。Vercel では不要。",
+  "supabaseUrl": "https://xxxxxxxx.supabase.co",
+  "supabaseAnonKey": "eyJhbGciOi..."
+}

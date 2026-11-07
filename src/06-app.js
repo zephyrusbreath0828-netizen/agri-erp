@@ -941,6 +941,53 @@ const Actions = {
     }, '削除する', 'danger');
   },
 
+  /* ------------------------- 接続設定（環境変数 / 暫定設定） ------------------------- */
+  async testSupabaseConnection() {
+    if (typeof SB === 'undefined' || !SB.testConnection) return UI.toast('接続テストを実行できません（未初期化）', 'err');
+    UI.toast('接続を確認しています…', 'info');
+    const r = await SB.testConnection();
+    if (r.ok) UI.toast(`接続OK（HTTP ${r.status} / ${r.ms}ms）`, 'ok');
+    else UI.toast('接続できません：' + (r.message || '不明なエラー'), 'err');
+  },
+  async reloadSupabaseConfig() {
+    if (typeof SB === 'undefined' || !SB.reloadConfig) return UI.toast('再取得できません（未初期化）', 'err');
+    const r = await SB.reloadConfig();
+    if (!r.ok) return UI.toast(r.message || '接続情報を取得できませんでした', 'warn');
+    UI.closeModal();
+    UI.toast(`接続情報を取得しました（${r.label}）。画面を再読み込みします`, 'ok');
+    setTimeout(() => location.reload(), 600);
+  },
+  /* 障害時の暫定設定（sessionStorage のみ・永続化しない） */
+  tempSupabaseConfigForm() {
+    if (!Role.canSystem(Auth.user)) return UI.toast('この操作はシステム管理者のみ利用できます', 'err');
+    const cur = (typeof SB !== 'undefined' && SB.configInfo) ? SB.configInfo() : {};
+    UI.modal('Supabase 暫定接続設定', 'このセッション内のみ有効（保存・配布物への記録は行いません）', `
+      <div class="note amber">${ico('alert', 15)} 通常運用では Vercel の環境変数 <code>NEXT_PUBLIC_SUPABASE_URL</code> / <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> を使用してください。ここでの設定は障害時の一時的な回避策で、タブを閉じると消えます。</div>
+      <div class="form-grid c2 mt12">
+        <div class="field span2"><label>Project URL</label><input class="inp" id="tmp_sb_url" value="${esc(cur.url || '')}" placeholder="https://xxxxxxxx.supabase.co"></div>
+        <div class="field span2"><label>Anon Key</label><input class="inp" id="tmp_sb_key" placeholder="Anon Key を入力（Publishable Key も可）"></div>
+      </div>`,
+      `<button class="btn" onclick="UI.closeModal()">キャンセル</button>
+       <button class="btn" onclick="Actions.clearTempSupabaseConfig()">暫定設定を解除</button>
+       <button class="btn primary" onclick="Actions.saveTempSupabaseConfig()">${ico('check', 15)} このセッションで使用</button>`);
+  },
+  saveTempSupabaseConfig() {
+    if (!Role.canSystem(Auth.user)) return UI.toast('この操作はシステム管理者のみ利用できます', 'err');
+    const g = n => (document.getElementById(n) || {}).value || '';
+    const url = g('tmp_sb_url').trim(), key = g('tmp_sb_key').trim();
+    if (!/^https?:\/\//i.test(url) || key.length < 20) return UI.toast('URLとAnon Keyを正しく入力してください', 'err');
+    try { sessionStorage.setItem('agri_sb_cfg', JSON.stringify({ url: url.replace(/\/+$/, ''), key })); } catch (e) { return UI.toast('保存できませんでした', 'err'); }
+    UI.closeModal();
+    UI.toast('暫定設定を適用しました。画面を再読み込みします', 'ok');
+    setTimeout(() => location.reload(), 500);
+  },
+  clearTempSupabaseConfig() {
+    try { sessionStorage.removeItem('agri_sb_cfg'); } catch (e) { /* noop */ }
+    UI.closeModal();
+    UI.toast('暫定設定を解除しました。画面を再読み込みします', 'warn');
+    setTimeout(() => location.reload(), 500);
+  },
+
   /* ------------------------- 設定・エクスポート ------------------------- */
   /* 緊急管理者ログインの有効／無効（管理者のみ） */
   saveEmergencyAdmin() {
@@ -995,7 +1042,7 @@ const Actions = {
   const $ = id => document.getElementById(id);
   const err = $('loginErr');
   const warn = $('sbWarn');
-  /* 1) Supabase 接続（接続情報はアプリ内部固定・FIXED_URL / FIXED_KEY） */
+  /* 1) Supabase 接続（接続情報は環境変数等から実行時に解決・ソース非記載） */
   let sb = { ok: false, message: '' };
   try {
     sb = await SB.init();

@@ -9,52 +9,52 @@
 
 -- organizations（3件）
 insert into organizations (id, organization_code, organization_name, is_active, created_at) values
-  (1, 'SETOLAS', 'SETOLAS', true, '2026-11-07T03:07:22.605Z'),
-  (2, 'A-FARM', 'A-FARM', true, '2026-11-07T03:07:22.605Z'),
-  (3, 'B-FARM', 'B-FARM', true, '2026-11-07T03:07:22.605Z')
+  (1, 'SETOLAS', 'SETOLAS', true, '2026-11-07T03:17:17.537Z'),
+  (2, 'A-FARM', 'A-FARM', true, '2026-11-07T03:17:17.537Z'),
+  (3, 'B-FARM', 'B-FARM', true, '2026-11-07T03:17:17.537Z')
 on conflict (id) do nothing;
 
 -- users（6件）
 insert into users (id, organization_id, login_id, name, email, tel, role, password_hash, force_password_change, enabled, is_system_admin, last_login_at, created_at) values
-  ('usr001', 1, 'admin', '山田 太郎', 'admin@agri-erp.local', '090-1111-2222', 'system_admin', crypt('Temp1234!', gen_salt('bf', 10)), true, true, true, DEFAULT, '2026-11-07T03:07:22.605Z'),
-  ('usr002', 1, 'office', '佐藤 花子', 'office@agri-erp.local', '090-3333-4444', 'manager', crypt('Temp1234!', gen_salt('bf', 10)), true, true, false, DEFAULT, '2026-11-07T03:07:22.605Z'),
-  ('usr003', 1, 'shipping', '鈴木 一郎', 'shipping@agri-erp.local', '090-5555-6666', 'user', crypt('Temp1234!', gen_salt('bf', 10)), true, true, false, DEFAULT, '2026-11-07T03:07:22.605Z'),
-  ('usr004', 1, 'sales1', '田中 健二', 'sales1@agri-erp.local', '090-7777-8888', 'user', crypt('Temp1234!', gen_salt('bf', 10)), true, true, false, DEFAULT, '2026-11-07T03:07:22.605Z'),
-  ('usr005', 1, 'sales2', '中村 美咲', 'sales2@agri-erp.local', '090-9999-0000', 'office', crypt('Temp1234!', gen_salt('bf', 10)), true, true, false, DEFAULT, '2026-11-07T03:07:22.605Z'),
-  ('usr010', 2, 'afarm', '青木 大地', 'afarm@agri-erp.local', '090-2222-3333', 'org_admin', crypt('Temp1234!', gen_salt('bf', 10)), true, true, false, DEFAULT, '2026-11-07T03:07:22.605Z')
+  ('usr001', 1, 'admin', '山田 太郎', 'admin@agri-erp.local', '090-1111-2222', 'system_admin', crypt('Temp1234!', gen_salt('bf', 10)), true, true, true, DEFAULT, '2026-11-07T03:17:17.537Z'),
+  ('usr002', 1, 'office', '佐藤 花子', 'office@agri-erp.local', '090-3333-4444', 'manager', crypt('Temp1234!', gen_salt('bf', 10)), true, true, false, DEFAULT, '2026-11-07T03:17:17.537Z'),
+  ('usr003', 1, 'shipping', '鈴木 一郎', 'shipping@agri-erp.local', '090-5555-6666', 'user', crypt('Temp1234!', gen_salt('bf', 10)), true, true, false, DEFAULT, '2026-11-07T03:17:17.537Z'),
+  ('usr004', 1, 'sales1', '田中 健二', 'sales1@agri-erp.local', '090-7777-8888', 'user', crypt('Temp1234!', gen_salt('bf', 10)), true, true, false, DEFAULT, '2026-11-07T03:17:17.537Z'),
+  ('usr005', 1, 'sales2', '中村 美咲', 'sales2@agri-erp.local', '090-9999-0000', 'office', crypt('Temp1234!', gen_salt('bf', 10)), true, true, false, DEFAULT, '2026-11-07T03:17:17.537Z'),
+  ('usr010', 2, 'afarm', '青木 大地', 'afarm@agri-erp.local', '090-2222-3333', 'org_admin', crypt('Temp1234!', gen_salt('bf', 10)), true, true, false, DEFAULT, '2026-11-07T03:17:17.537Z')
 on conflict (id) do nothing;
 
 -- companies（5件）
 insert into companies (id, organization_id, company_code, name, postal_code, address, tel, fax, email, invoice_number, logo_url, notes, is_active, visible_fields, created_at) values
-  ('co001', 1, 'C001', '株式会社 みどりファーム', '〒321-0000', '栃木県みどり市中央1-2-3', '0123-45-6789', '0123-45-6780', 'info@midori-farm.example', 'T1234567890123', '', '旧「自社情報」から移行した自社（グループ中核会社）', true, '[object Object]', '2026-11-07T03:07:22.605Z'),
-  ('co002', 1, 'C002', 'セトラスホールディングス株式会社', '〒760-0023', '香川県高松市寿町1-2-3 セトラスビル5F', '087-811-0000', '087-811-0001', 'info@settras-hd.example', 'T2234567890123', '', 'グループ統括会社', true, '[object Object]', '2026-11-07T03:07:22.605Z'),
-  ('co003', 1, 'C003', '○○農産株式会社', '〒761-0000', '香川県高松市○○町1-1', '087-000-0000', '087-000-0001', 'info@maru-nosan.example', 'T3234567890123', '', 'グループ会社（農産物の生産・出荷）', true, '[object Object]', '2026-11-07T03:07:22.605Z'),
-  ('co004', 1, 'C004', '○○ファーム株式会社', '〒771-0000', '徳島県名西郡神山町○○字○○1', '088-000-0000', '088-000-0001', 'info@maru-farm.example', 'T4234567890123', '', 'グループ会社（神山農場の運営）', true, '[object Object]', '2026-11-07T03:07:22.605Z'),
-  ('co010', 2, 'C010', 'Ａファーム株式会社', '〒771-0000', '徳島県徳島市○○町4-5-6', '088-000-1000', '088-000-1001', 'info@a-farm.local', 'T3234567890123', '', 'A-FARM 組織の会社（分離確認用）', true, '[object Object]', '2026-11-07T03:07:22.608Z')
+  ('co001', 1, 'C001', '株式会社 みどりファーム', '〒321-0000', '栃木県みどり市中央1-2-3', '0123-45-6789', '0123-45-6780', 'info@midori-farm.example', 'T1234567890123', '', '旧「自社情報」から移行した自社（グループ中核会社）', true, '[object Object]', '2026-11-07T03:17:17.537Z'),
+  ('co002', 1, 'C002', 'セトラスホールディングス株式会社', '〒760-0023', '香川県高松市寿町1-2-3 セトラスビル5F', '087-811-0000', '087-811-0001', 'info@settras-hd.example', 'T2234567890123', '', 'グループ統括会社', true, '[object Object]', '2026-11-07T03:17:17.537Z'),
+  ('co003', 1, 'C003', '○○農産株式会社', '〒761-0000', '香川県高松市○○町1-1', '087-000-0000', '087-000-0001', 'info@maru-nosan.example', 'T3234567890123', '', 'グループ会社（農産物の生産・出荷）', true, '[object Object]', '2026-11-07T03:17:17.537Z'),
+  ('co004', 1, 'C004', '○○ファーム株式会社', '〒771-0000', '徳島県名西郡神山町○○字○○1', '088-000-0000', '088-000-0001', 'info@maru-farm.example', 'T4234567890123', '', 'グループ会社（神山農場の運営）', true, '[object Object]', '2026-11-07T03:17:17.537Z'),
+  ('co010', 2, 'C010', 'Ａファーム株式会社', '〒771-0000', '徳島県徳島市○○町4-5-6', '088-000-1000', '088-000-1001', 'info@a-farm.local', 'T3234567890123', '', 'A-FARM 組織の会社（分離確認用）', true, '[object Object]', '2026-11-07T03:17:17.540Z')
 on conflict (id) do nothing;
 
 -- branches（7件）
 insert into branches (id, organization_id, company_id, branch_code, name, postal_code, address, tel, fax, email, manager_name, notes, is_active, visible_fields, created_at) values
-  ('br001', 1, 'co001', 'H001', '本社', '〒321-0000', '栃木県みどり市中央1-2-3', '0123-45-6789', '0123-45-6780', '', '山田 太郎', '本社・事務所', true, '[object Object]', '2026-11-07T03:07:22.605Z'),
-  ('br002', 1, 'co002', 'H001', '高松事業所', '〒761-0000', '香川県高松市○○町1-2-3', '087-000-0000', '087-000-0001', 'takamatsu@settras-hd.example', '佐々木 健', '営業・物流拠点', true, '[object Object]', '2026-11-07T03:07:22.605Z'),
-  ('br003', 1, 'co002', 'H002', '神山農場', '〒771-0000', '徳島県名西郡神山町○○字○○', '088-000-0000', '', 'kamiyama@settras-hd.example', '大西 誠', '生産拠点', true, '[object Object]', '2026-11-07T03:07:22.605Z'),
-  ('br004', 1, 'co003', 'N001', '本社', '〒761-0000', '香川県高松市○○町1-1', '087-000-0000', '', '', '高橋 修', '', true, '[object Object]', '2026-11-07T03:07:22.605Z'),
-  ('br005', 1, 'co003', 'N002', '綾川圃場', '〒761-0000', '香川県綾歌郡綾川町○○', '087-000-0002', '', '', '中村 恵', '選果場併設', true, '[object Object]', '2026-11-07T03:07:22.605Z'),
-  ('br006', 1, 'co004', 'F001', '神山農場', '〒771-0000', '徳島県名西郡神山町○○字○○1', '088-000-0000', '088-000-0001', '', '大西 誠', '本場（有機JAS）', true, '[object Object]', '2026-11-07T03:07:22.605Z'),
-  ('br010', 2, 'co010', 'H010', '徳島本社', '〒771-0000', '徳島県徳島市○○町4-5-6', '088-000-1000', '088-000-1001', 'info@a-farm.local', '青木 大地', '', true, '[object Object]', '2026-11-07T03:07:22.608Z')
+  ('br001', 1, 'co001', 'H001', '本社', '〒321-0000', '栃木県みどり市中央1-2-3', '0123-45-6789', '0123-45-6780', '', '山田 太郎', '本社・事務所', true, '[object Object]', '2026-11-07T03:17:17.537Z'),
+  ('br002', 1, 'co002', 'H001', '高松事業所', '〒761-0000', '香川県高松市○○町1-2-3', '087-000-0000', '087-000-0001', 'takamatsu@settras-hd.example', '佐々木 健', '営業・物流拠点', true, '[object Object]', '2026-11-07T03:17:17.537Z'),
+  ('br003', 1, 'co002', 'H002', '神山農場', '〒771-0000', '徳島県名西郡神山町○○字○○', '088-000-0000', '', 'kamiyama@settras-hd.example', '大西 誠', '生産拠点', true, '[object Object]', '2026-11-07T03:17:17.537Z'),
+  ('br004', 1, 'co003', 'N001', '本社', '〒761-0000', '香川県高松市○○町1-1', '087-000-0000', '', '', '高橋 修', '', true, '[object Object]', '2026-11-07T03:17:17.537Z'),
+  ('br005', 1, 'co003', 'N002', '綾川圃場', '〒761-0000', '香川県綾歌郡綾川町○○', '087-000-0002', '', '', '中村 恵', '選果場併設', true, '[object Object]', '2026-11-07T03:17:17.537Z'),
+  ('br006', 1, 'co004', 'F001', '神山農場', '〒771-0000', '徳島県名西郡神山町○○字○○1', '088-000-0000', '088-000-0001', '', '大西 誠', '本場（有機JAS）', true, '[object Object]', '2026-11-07T03:17:17.537Z'),
+  ('br010', 2, 'co010', 'H010', '徳島本社', '〒771-0000', '徳島県徳島市○○町4-5-6', '088-000-1000', '088-000-1001', 'info@a-farm.local', '青木 大地', '', true, '[object Object]', '2026-11-07T03:17:17.540Z')
 on conflict (id) do nothing;
 
 -- doc_templates（9件）
 insert into doc_templates (id, organization_id, template_code, name, doc_kind, company_id, company_name, branch_name, branch1, branch2, address, tel, fax, email, invoice_number, manager, logo, is_default, is_active, notes, branch_mode, paper, watermark, footer, created_at) values
-  ('tpl001', 1, 'Q-STD', '標準見積書', 'quote', NULL, true, true, true, true, true, true, true, false, true, false, true, true, true, '会社名・拠点・住所・TEL/FAX・登録番号・ロゴを表示', 'both', 'portrait', true, true, '2026-11-07T03:07:22.605Z'),
-  ('tpl002', 1, 'Q-SMP', '簡易見積書', 'quote', NULL, true, true, true, true, false, false, false, false, false, false, false, false, true, '会社名と拠点名のみ（社内確認用）', 'both', 'portrait', true, true, '2026-11-07T03:07:22.605Z'),
-  ('tpl003', 1, 'P-STD', '標準発注書', 'purchase_order', NULL, true, true, true, true, true, true, true, false, true, false, true, true, true, '仕入先へ送付する標準発注書', 'both', 'portrait', true, true, '2026-11-07T03:07:22.605Z'),
-  ('tpl004', 1, 'P-SMP', '簡易発注書', 'purchase_order', NULL, true, true, true, true, false, true, false, false, false, false, false, false, true, '電話・FAX番号のみ表示', 'both', 'portrait', true, true, '2026-11-07T03:07:22.605Z'),
-  ('tpl005', 1, 'D-STD', '標準納品書', 'delivery_note', NULL, true, true, true, true, true, true, false, false, true, false, true, true, true, '納品書の標準レイアウト', 'both', 'portrait', true, true, '2026-11-07T03:07:22.605Z'),
-  ('tpl006', 1, 'I-STD', '標準請求書', 'invoice', NULL, true, true, true, true, true, true, true, false, true, false, true, true, true, '適格請求書（インボイス）対応', 'both', 'portrait', true, true, '2026-11-07T03:07:22.605Z'),
-  ('tpl007', 1, 'R-STD', '標準入庫伝票', 'receipt_note', NULL, true, true, true, true, true, true, false, false, false, false, false, true, true, '入荷（入庫）伝票', 'both', 'portrait', true, true, '2026-11-07T03:07:22.605Z'),
-  ('tpl008', 1, 'S-STD', '標準出庫伝票', 'shipping_slip', NULL, true, true, true, true, true, true, false, false, false, false, false, true, true, '出荷（出庫）伝票', 'both', 'portrait', true, true, '2026-11-07T03:07:22.605Z'),
-  ('tpl009', 1, 'K-STD', '標準ピッキングリスト', 'picking_list', NULL, true, true, true, true, false, false, false, false, false, false, false, true, true, '倉庫作業用（会社名・拠点名のみ）', 'both', 'portrait', true, true, '2026-11-07T03:07:22.605Z')
+  ('tpl001', 1, 'Q-STD', '標準見積書', 'quote', NULL, true, true, true, true, true, true, true, false, true, false, true, true, true, '会社名・拠点・住所・TEL/FAX・登録番号・ロゴを表示', 'both', 'portrait', true, true, '2026-11-07T03:17:17.537Z'),
+  ('tpl002', 1, 'Q-SMP', '簡易見積書', 'quote', NULL, true, true, true, true, false, false, false, false, false, false, false, false, true, '会社名と拠点名のみ（社内確認用）', 'both', 'portrait', true, true, '2026-11-07T03:17:17.537Z'),
+  ('tpl003', 1, 'P-STD', '標準発注書', 'purchase_order', NULL, true, true, true, true, true, true, true, false, true, false, true, true, true, '仕入先へ送付する標準発注書', 'both', 'portrait', true, true, '2026-11-07T03:17:17.537Z'),
+  ('tpl004', 1, 'P-SMP', '簡易発注書', 'purchase_order', NULL, true, true, true, true, false, true, false, false, false, false, false, false, true, '電話・FAX番号のみ表示', 'both', 'portrait', true, true, '2026-11-07T03:17:17.537Z'),
+  ('tpl005', 1, 'D-STD', '標準納品書', 'delivery_note', NULL, true, true, true, true, true, true, false, false, true, false, true, true, true, '納品書の標準レイアウト', 'both', 'portrait', true, true, '2026-11-07T03:17:17.537Z'),
+  ('tpl006', 1, 'I-STD', '標準請求書', 'invoice', NULL, true, true, true, true, true, true, true, false, true, false, true, true, true, '適格請求書（インボイス）対応', 'both', 'portrait', true, true, '2026-11-07T03:17:17.537Z'),
+  ('tpl007', 1, 'R-STD', '標準入庫伝票', 'receipt_note', NULL, true, true, true, true, true, true, false, false, false, false, false, true, true, '入荷（入庫）伝票', 'both', 'portrait', true, true, '2026-11-07T03:17:17.537Z'),
+  ('tpl008', 1, 'S-STD', '標準出庫伝票', 'shipping_slip', NULL, true, true, true, true, true, true, false, false, false, false, false, true, true, '出荷（出庫）伝票', 'both', 'portrait', true, true, '2026-11-07T03:17:17.537Z'),
+  ('tpl009', 1, 'K-STD', '標準ピッキングリスト', 'picking_list', NULL, true, true, true, true, false, false, false, false, false, false, false, true, true, '倉庫作業用（会社名・拠点名のみ）', 'both', 'portrait', true, true, '2026-11-07T03:17:17.537Z')
 on conflict (id) do nothing;
 
 -- suppliers（5件）
@@ -63,7 +63,7 @@ insert into suppliers (id, organization_id, code, name, kana, tel, address, clos
   ('sup002', 1, 'S002', '北関東包装資材株式会社', 'キタカントウホウソウシザイ', '028-555-1234', '〒320-0800 栃木県宇都宮市包装1-5', 31, '翌月末', 5, '', '', true, '', DEFAULT),
   ('sup003', 1, 'S003', '株式会社みらい種苗', 'ミライシュビョウ', '03-1234-5678', '〒101-0000 東京都千代田区種苗1-1', 31, '翌々月末', 7, '', '', true, '', DEFAULT),
   ('sup004', 1, 'S004', 'みどり市農協 出荷部会', 'ミドリシ ノウキョウ シュッカブカイ', '0123-45-9999', '〒321-0005 栃木県みどり市農協前1', 31, '翌月末', 2, '', '', true, '', DEFAULT),
-  ('sup010', 2, 'S-100', 'Ａファーム資材商会', 'エーファームシザイ', '088-333-4444', '徳島県鳴門市1-1-1', 31, '翌月末', 3, '', '', true, 'A-FARM 組織', '2026-11-07T03:07:22.608Z')
+  ('sup010', 2, 'S-100', 'Ａファーム資材商会', 'エーファームシザイ', '088-333-4444', '徳島県鳴門市1-1-1', 31, '翌月末', 3, '', '', true, 'A-FARM 組織', '2026-11-07T03:17:17.540Z')
 on conflict (id) do nothing;
 
 -- customers（6件）
@@ -73,7 +73,7 @@ insert into customers (id, organization_id, code, name, kana, tel, address, clos
   ('cus003', 1, 'C003', 'みどり市学校給食センター', 'ミドリシ ガッコウキュウショクセンター', '0123-45-3333', '〒321-0002 栃木県みどり市学園台7-8', 31, '翌月末', '', '', 'usr005', true, '', DEFAULT),
   ('cus004', 1, 'C004', '道の駅 みどりの里', 'ミチノエキ ミドリノサト', '0123-45-4444', '〒321-0003 栃木県みどり市山手9-10', 31, '翌月末', '', '', 'usr002', true, '', DEFAULT),
   ('cus005', 1, 'C005', 'レストラン ファームキッチン', 'レストラン ファームキッチン', '0123-45-5555', '〒321-0004 栃木県みどり市大通り2-1', 15, '翌月末', '', '', 'usr004', true, '', DEFAULT),
-  ('cus010', 2, 'C-100', 'Ａファーム取引先商事', 'エーファームトリヒキサキ', '088-111-2222', '徳島県徳島市中央9-9-9', 31, '翌月末', '', '', NULL, true, 'A-FARM 組織', '2026-11-07T03:07:22.608Z')
+  ('cus010', 2, 'C-100', 'Ａファーム取引先商事', 'エーファームトリヒキサキ', '088-111-2222', '徳島県徳島市中央9-9-9', 31, '翌月末', '', '', NULL, true, 'A-FARM 組織', '2026-11-07T03:17:17.540Z')
 on conflict (id) do nothing;
 
 -- items（26件）
@@ -103,20 +103,20 @@ insert into items (id, organization_id, kind, code, name, kana, category, unit, 
   ('itm023', 1, 'material', 'M008', '緩衝材', 'カンショウザイ', '梱包資材', '袋', 'エアクッション', 45, 28, DEFAULT, 800, 1600, 300, 920, 'E-08', '49100003014', 'AGM008', 'sup002', true, '', DEFAULT),
   ('itm024', 1, 'material', 'M009', '保冷剤', 'ホレイザイ', '梱包資材', '個', '400g', 65, 40, DEFAULT, 300, 600, 100, 155, 'E-09', '49100003151', 'AGM009', 'sup002', true, '', DEFAULT),
   ('itm025', 1, 'material', 'M010', 'ラベルシール', 'ラベルシール', '梱包資材', '枚', '50×30mm', 5, 2.5, DEFAULT, 3000, 6000, 1000, 8800, 'E-10', '49100003288', 'AGM010', 'sup002', true, '', DEFAULT),
-  ('itm010', 2, 'product', 'A-001', 'Ａファーム トマト 5kg', 'トマト', '果菜類', 'ケース', '5kg/ケース', 2800, 1900, 8, 10, 20, 5, 30, 'D-01', '', '', NULL, true, 'A-FARM 組織', '2026-11-07T03:07:22.608Z')
+  ('itm010', 2, 'product', 'A-001', 'Ａファーム トマト 5kg', 'トマト', '果菜類', 'ケース', '5kg/ケース', 2800, 1900, 8, 10, 20, 5, 30, 'D-01', '', '', NULL, true, 'A-FARM 組織', '2026-11-07T03:17:17.540Z')
 on conflict (id) do nothing;
 
 -- orders（9件）
 insert into orders (id, organization_id, order_no, customer_id, customer_name, order_date, due_date, ship_date, status, subtotal, tax_amount, total_amount, remarks, company_id, branch1_id, branch2_id, sales_rep_id, created_by, created_at) values
-  ('ord001', 1, 'ORD-20261102-0001', 'cus002', 'スーパーマルヨシ 本店', '2026-11-02', '2026-11-06', '2026-11-06', 'received', 136000, 10880, 146880, '', DEFAULT, DEFAULT, DEFAULT, 'usr004', 'usr002', '2026-11-07T03:07:22.606Z'),
-  ('ord002', 1, 'ORD-20261103-0002', 'cus001', 'JAみどり 農産物直売所', '2026-11-03', '2026-11-07', '2026-11-07', 'received', 162500, 13000, 175500, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', 'usr002', '2026-11-07T03:07:22.606Z'),
-  ('ord003', 1, 'ORD-20261104-0003', 'cus003', 'みどり市学校給食センター', '2026-11-04', '2026-11-08', '2026-11-08', 'received', 132500, 10600, 143100, '', DEFAULT, DEFAULT, DEFAULT, 'usr005', 'usr002', '2026-11-07T03:07:22.606Z'),
-  ('ord004', 1, 'ORD-20261105-0004', 'cus005', 'レストラン ファームキッチン', '2026-11-05', '2026-11-09', '2026-11-09', 'received', 94800, 7584, 102384, '', DEFAULT, DEFAULT, DEFAULT, 'usr004', 'usr002', '2026-11-07T03:07:22.606Z'),
-  ('ord005', 1, 'ORD-20261106-0005', 'cus004', '道の駅 みどりの里', '2026-11-06', '2026-11-10', '2026-11-10', 'received', 160800, 12864, 173664, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', 'usr002', '2026-11-07T03:07:22.607Z'),
-  ('ord006', 1, 'ORD-20261030-0006', 'cus002', 'スーパーマルヨシ 本店', '2026-10-30', '2026-11-04', '2026-11-04', 'shipped', 96050, 7684, 103734, '', DEFAULT, DEFAULT, DEFAULT, 'usr004', 'usr002', '2026-11-07T03:07:22.607Z'),
-  ('ord007', 1, 'ORD-20261031-0007', 'cus001', 'JAみどり 農産物直売所', '2026-10-31', '2026-11-05', '2026-11-05', 'shipped', 86000, 6880, 92880, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', 'usr002', '2026-11-07T03:07:22.607Z'),
-  ('ord008', 1, 'ORD-20261101-0008', 'cus003', 'みどり市学校給食センター', '2026-11-01', '2026-11-12', '2026-11-12', 'partial', 72000, 5760, 77760, '', DEFAULT, DEFAULT, DEFAULT, 'usr005', 'usr002', '2026-11-07T03:07:22.607Z'),
-  ('ord010', 2, 'AF-20261030-0001', 'cus010', 'Ａファーム取引先商事', '2026-11-07', '2026-11-07', '2026-11-07', 'received', 8400, 672, 9072, 'A-FARM 組織のサンプル受注', 'co010', 'br010', NULL, DEFAULT, 'usr010', '2026-11-07T03:07:22.608Z')
+  ('ord001', 1, 'ORD-20261102-0001', 'cus002', 'スーパーマルヨシ 本店', '2026-11-02', '2026-11-06', '2026-11-06', 'received', 136000, 10880, 146880, '', DEFAULT, DEFAULT, DEFAULT, 'usr004', 'usr002', '2026-11-07T03:17:17.539Z'),
+  ('ord002', 1, 'ORD-20261103-0002', 'cus001', 'JAみどり 農産物直売所', '2026-11-03', '2026-11-07', '2026-11-07', 'received', 162500, 13000, 175500, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', 'usr002', '2026-11-07T03:17:17.539Z'),
+  ('ord003', 1, 'ORD-20261104-0003', 'cus003', 'みどり市学校給食センター', '2026-11-04', '2026-11-08', '2026-11-08', 'received', 132500, 10600, 143100, '', DEFAULT, DEFAULT, DEFAULT, 'usr005', 'usr002', '2026-11-07T03:17:17.539Z'),
+  ('ord004', 1, 'ORD-20261105-0004', 'cus005', 'レストラン ファームキッチン', '2026-11-05', '2026-11-09', '2026-11-09', 'received', 94800, 7584, 102384, '', DEFAULT, DEFAULT, DEFAULT, 'usr004', 'usr002', '2026-11-07T03:17:17.539Z'),
+  ('ord005', 1, 'ORD-20261106-0005', 'cus004', '道の駅 みどりの里', '2026-11-06', '2026-11-10', '2026-11-10', 'received', 160800, 12864, 173664, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', 'usr002', '2026-11-07T03:17:17.539Z'),
+  ('ord006', 1, 'ORD-20261030-0006', 'cus002', 'スーパーマルヨシ 本店', '2026-10-30', '2026-11-04', '2026-11-04', 'shipped', 96050, 7684, 103734, '', DEFAULT, DEFAULT, DEFAULT, 'usr004', 'usr002', '2026-11-07T03:17:17.539Z'),
+  ('ord007', 1, 'ORD-20261031-0007', 'cus001', 'JAみどり 農産物直売所', '2026-10-31', '2026-11-05', '2026-11-05', 'shipped', 86000, 6880, 92880, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', 'usr002', '2026-11-07T03:17:17.539Z'),
+  ('ord008', 1, 'ORD-20261101-0008', 'cus003', 'みどり市学校給食センター', '2026-11-01', '2026-11-12', '2026-11-12', 'partial', 72000, 5760, 77760, '', DEFAULT, DEFAULT, DEFAULT, 'usr005', 'usr002', '2026-11-07T03:17:17.539Z'),
+  ('ord010', 2, 'AF-20261030-0001', 'cus010', 'Ａファーム取引先商事', '2026-11-07', '2026-11-07', '2026-11-07', 'received', 8400, 672, 9072, 'A-FARM 組織のサンプル受注', 'co010', 'br010', NULL, DEFAULT, 'usr010', '2026-11-07T03:17:17.540Z')
 on conflict (id) do nothing;
 
 -- order_lines（21件）
@@ -146,12 +146,12 @@ on conflict (id) do nothing;
 
 -- purchase_orders（6件）
 insert into purchase_orders (id, organization_id, po_no, supplier_id, supplier_name, order_date, expected_date, status, subtotal, tax_amount, total_amount, remarks, company_id, branch1_id, branch2_id, created_by, created_at) values
-  ('po001', 1, 'PO-20261103-0001', 'sup002', '北関東包装資材株式会社', '2026-11-03', '2026-11-05', 'ordered', 102000, 8160, 110160, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', '2026-11-07T03:07:22.607Z'),
-  ('po002', 1, 'PO-20261105-0002', 'sup002', '北関東包装資材株式会社', '2026-11-05', '2026-11-07', 'ordered', 32500, 2600, 35100, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', '2026-11-07T03:07:22.607Z'),
-  ('po003', 1, 'PO-20261106-0003', 'sup004', 'みどり市農協 出荷部会', '2026-11-06', '2026-11-08', 'ordered', 368000, 29440, 397440, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', '2026-11-07T03:07:22.607Z'),
-  ('po004', 1, 'PO-20261104-0004', 'sup002', '北関東包装資材株式会社', '2026-11-04', '2026-11-09', 'ordered', 37000, 2960, 39960, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', '2026-11-07T03:07:22.607Z'),
-  ('po005', 1, 'PO-20261028-0005', 'sup004', 'みどり市農協 出荷部会', '2026-10-28', '2026-11-02', 'received', 142500, 11400, 153900, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', '2026-11-07T03:07:22.607Z'),
-  ('po006', 1, 'PO-20261030-0006', 'sup002', '北関東包装資材株式会社', '2026-10-30', '2026-11-03', 'received', 12500, 1000, 13500, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', '2026-11-07T03:07:22.607Z')
+  ('po001', 1, 'PO-20261103-0001', 'sup002', '北関東包装資材株式会社', '2026-11-03', '2026-11-05', 'ordered', 102000, 8160, 110160, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', '2026-11-07T03:17:17.539Z'),
+  ('po002', 1, 'PO-20261105-0002', 'sup002', '北関東包装資材株式会社', '2026-11-05', '2026-11-07', 'ordered', 32500, 2600, 35100, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', '2026-11-07T03:17:17.539Z'),
+  ('po003', 1, 'PO-20261106-0003', 'sup004', 'みどり市農協 出荷部会', '2026-11-06', '2026-11-08', 'ordered', 368000, 29440, 397440, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', '2026-11-07T03:17:17.539Z'),
+  ('po004', 1, 'PO-20261104-0004', 'sup002', '北関東包装資材株式会社', '2026-11-04', '2026-11-09', 'ordered', 37000, 2960, 39960, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', '2026-11-07T03:17:17.540Z'),
+  ('po005', 1, 'PO-20261028-0005', 'sup004', 'みどり市農協 出荷部会', '2026-10-28', '2026-11-02', 'received', 142500, 11400, 153900, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', '2026-11-07T03:17:17.540Z'),
+  ('po006', 1, 'PO-20261030-0006', 'sup002', '北関東包装資材株式会社', '2026-10-30', '2026-11-03', 'received', 12500, 1000, 13500, '', DEFAULT, DEFAULT, DEFAULT, 'usr002', '2026-11-07T03:17:17.540Z')
 on conflict (id) do nothing;
 
 -- purchase_order_lines（10件）
@@ -170,84 +170,84 @@ on conflict (id) do nothing;
 
 -- receipts（5件）
 insert into receipts (id, organization_id, receipt_no, po_id, supplier_id, supplier_name, receipt_date, status, subtotal, tax_amount, total_amount, remarks, received_by, created_at) values
-  ('rcv001', 1, 'RC-20261026-0001', NULL, 'sup004', 'みどり市農協 出荷部会', '2026-10-26', 'confirmed', 408000, 32640, 440640, '', 'usr002', '2026-11-07T03:07:22.606Z'),
-  ('rcv002', 1, 'RC-20261029-0002', NULL, 'sup002', '北関東包装資材株式会社', '2026-10-29', 'confirmed', 156000, 12480, 168480, '', 'usr002', '2026-11-07T03:07:22.606Z'),
-  ('rcv003', 1, 'RC-20261101-0003', NULL, 'sup004', 'みどり市農協 出荷部会', '2026-11-01', 'confirmed', 233000, 18640, 251640, '', 'usr002', '2026-11-07T03:07:22.606Z'),
-  ('rcv004', 1, 'RC-20261104-0004', NULL, 'sup002', '北関東包装資材株式会社', '2026-11-04', 'confirmed', 42200, 3376, 45576, '', 'usr002', '2026-11-07T03:07:22.606Z'),
-  ('rcv005', 1, 'RC-20261106-0005', NULL, 'sup004', 'みどり市農協 出荷部会', '2026-11-06', 'confirmed', 234000, 18720, 252720, '', 'usr002', '2026-11-07T03:07:22.606Z')
+  ('rcv001', 1, 'RC-20261026-0001', NULL, 'sup004', 'みどり市農協 出荷部会', '2026-10-26', 'confirmed', 408000, 32640, 440640, '', 'usr002', '2026-11-07T03:17:17.538Z'),
+  ('rcv002', 1, 'RC-20261029-0002', NULL, 'sup002', '北関東包装資材株式会社', '2026-10-29', 'confirmed', 156000, 12480, 168480, '', 'usr002', '2026-11-07T03:17:17.538Z'),
+  ('rcv003', 1, 'RC-20261101-0003', NULL, 'sup004', 'みどり市農協 出荷部会', '2026-11-01', 'confirmed', 233000, 18640, 251640, '', 'usr002', '2026-11-07T03:17:17.538Z'),
+  ('rcv004', 1, 'RC-20261104-0004', NULL, 'sup002', '北関東包装資材株式会社', '2026-11-04', 'confirmed', 42200, 3376, 45576, '', 'usr002', '2026-11-07T03:17:17.538Z'),
+  ('rcv005', 1, 'RC-20261106-0005', NULL, 'sup004', 'みどり市農協 出荷部会', '2026-11-06', 'confirmed', 234000, 18720, 252720, '', 'usr002', '2026-11-07T03:17:17.538Z')
 on conflict (id) do nothing;
 
 -- receipt_lines（15件）
 insert into receipt_lines (id, organization_id, receipt_id, po_line_id, item_id, item_name, quantity, unit_cost, amount, lot_no, expiry, notes) values
-  ('x7cest389otil', 1, 'rcv001', NULL, 'itm001', 'トマト', 80, 2400, 192000, '', '', DEFAULT),
-  ('xzb6957xjotil', 1, 'rcv001', NULL, 'itm003', 'きゅうり', 60, 1600, 96000, '', '', DEFAULT),
-  ('xpzqkadopotil', 1, 'rcv001', NULL, 'itm006', 'キャベツ', 120, 1000, 120000, '', '', DEFAULT),
-  ('xnl7r58xiotim', 1, 'rcv002', NULL, 'itm016', '段ボール箱 10kg', 1000, 62, 62000, '', '', DEFAULT),
-  ('xxefemehiotim', 1, 'rcv002', NULL, 'itm017', '段ボール箱 5kg', 800, 50, 40000, '', '', DEFAULT),
-  ('x38l6hrd0otim', 1, 'rcv002', NULL, 'itm019', 'プラスチックコンテナ', 60, 900, 54000, '', '', DEFAULT),
-  ('xo88mizk4otim', 1, 'rcv003', NULL, 'itm004', 'なす', 50, 1500, 75000, '', '', DEFAULT),
-  ('xehve60ufotim', 1, 'rcv003', NULL, 'itm011', 'たまねぎ', 100, 950, 95000, '', '', DEFAULT),
-  ('xc4qppyg4otim', 1, 'rcv003', NULL, 'itm009', 'だいこん', 70, 900, 63000, '', '', DEFAULT),
-  ('xh8tuhfkjotim', 1, 'rcv004', NULL, 'itm018', '発泡スチロール箱', 120, 210, 25200, '', '', DEFAULT),
-  ('xifgjnq77otim', 1, 'rcv004', NULL, 'itm020', '結束バンド', 3000, 1.5, 4500, '', '', DEFAULT),
-  ('xzfcferhiotim', 1, 'rcv004', NULL, 'itm025', 'ラベルシール', 5000, 2.5, 12500, '', '', DEFAULT),
-  ('x7bjo6z42otim', 1, 'rcv005', NULL, 'itm001', 'トマト', 60, 2400, 144000, '', '', DEFAULT),
-  ('xnnqz5rgzotim', 1, 'rcv005', NULL, 'itm007', 'レタス', 40, 1200, 48000, '', '', DEFAULT),
-  ('xtn7p1dqmotim', 1, 'rcv005', NULL, 'itm013', 'ねぎ', 30, 1400, 42000, '', '', DEFAULT)
+  ('x7w1p1s4g1kki', 1, 'rcv001', NULL, 'itm001', 'トマト', 80, 2400, 192000, '', '', DEFAULT),
+  ('x4zneavmb1kki', 1, 'rcv001', NULL, 'itm003', 'きゅうり', 60, 1600, 96000, '', '', DEFAULT),
+  ('xw8jt0a5j1kki', 1, 'rcv001', NULL, 'itm006', 'キャベツ', 120, 1000, 120000, '', '', DEFAULT),
+  ('x5pib07v01kki', 1, 'rcv002', NULL, 'itm016', '段ボール箱 10kg', 1000, 62, 62000, '', '', DEFAULT),
+  ('xphilzo7d1kki', 1, 'rcv002', NULL, 'itm017', '段ボール箱 5kg', 800, 50, 40000, '', '', DEFAULT),
+  ('xkrlvlz2w1kki', 1, 'rcv002', NULL, 'itm019', 'プラスチックコンテナ', 60, 900, 54000, '', '', DEFAULT),
+  ('x9d9ufzc21kki', 1, 'rcv003', NULL, 'itm004', 'なす', 50, 1500, 75000, '', '', DEFAULT),
+  ('xon7ctqd21kki', 1, 'rcv003', NULL, 'itm011', 'たまねぎ', 100, 950, 95000, '', '', DEFAULT),
+  ('xj4dubb2m1kki', 1, 'rcv003', NULL, 'itm009', 'だいこん', 70, 900, 63000, '', '', DEFAULT),
+  ('xfx4caj0c1kki', 1, 'rcv004', NULL, 'itm018', '発泡スチロール箱', 120, 210, 25200, '', '', DEFAULT),
+  ('x37b7ragd1kki', 1, 'rcv004', NULL, 'itm020', '結束バンド', 3000, 1.5, 4500, '', '', DEFAULT),
+  ('x2vbv4olm1kki', 1, 'rcv004', NULL, 'itm025', 'ラベルシール', 5000, 2.5, 12500, '', '', DEFAULT),
+  ('xvnx3lgma1kki', 1, 'rcv005', NULL, 'itm001', 'トマト', 60, 2400, 144000, '', '', DEFAULT),
+  ('xnpjlqj6f1kki', 1, 'rcv005', NULL, 'itm007', 'レタス', 40, 1200, 48000, '', '', DEFAULT),
+  ('xr1c1gi2g1kki', 1, 'rcv005', NULL, 'itm013', 'ねぎ', 30, 1400, 42000, '', '', DEFAULT)
 on conflict (id) do nothing;
 
 -- shipments（7件）
 insert into shipments (id, organization_id, shipment_no, order_id, order_no, customer_id, customer_name, ship_date, status, carrier, tracking_no, ship_to_name, ship_to_addr, remarks, confirmed_at, created_by, created_at) values
-  ('shp001', 1, 'SH-20261104-0001', 'ord006', 'ORD-20261030-0006', 'cus002', 'スーパーマルヨシ 本店', '2026-11-04', 'confirmed', 'ヤマト運輸', 'TRK100037', 'スーパーマルヨシ 本店', '〒321-0001 栃木県みどり市駅前4-5-6', '', '2026-11-04T03:07:22.607Z', 'usr003', '2026-11-07T03:07:22.607Z'),
-  ('shp002', 1, 'SH-20261105-0002', 'ord007', 'ORD-20261031-0007', 'cus001', 'JAみどり 農産物直売所', '2026-11-05', 'confirmed', '佐川急便', 'TRK100074', 'JAみどり 農産物直売所', '〒321-0000 栃木県みどり市中央1-2-3', '', '2026-11-05T03:07:22.607Z', 'usr003', '2026-11-07T03:07:22.607Z'),
-  ('shp003', 1, 'SH-20261107-0003', 'ord008', 'ORD-20261101-0008', 'cus003', 'みどり市学校給食センター', '2026-11-07', 'instructed', 'ヤマト運輸', '', 'みどり市学校給食センター', '〒321-0002 栃木県みどり市学園台7-8', '', NULL, 'usr003', '2026-11-07T03:07:22.607Z'),
-  ('shp004', 1, 'SH-20261107-0004', 'ord002', 'ORD-20261103-0002', 'cus001', 'JAみどり 農産物直売所', '2026-11-07', 'instructed', '自社配送', '', 'JAみどり 農産物直売所', '〒321-0000 栃木県みどり市中央1-2-3', '', NULL, 'usr003', '2026-11-07T03:07:22.607Z'),
-  ('shp005', 1, 'SH-20261108-0005', 'ord003', 'ORD-20261104-0003', 'cus003', 'みどり市学校給食センター', '2026-11-08', 'instructed', '佐川急便', '', 'みどり市学校給食センター', '〒321-0002 栃木県みどり市学園台7-8', '', NULL, 'usr003', '2026-11-07T03:07:22.607Z'),
-  ('shp006', 1, 'SH-20261109-0006', 'ord004', 'ORD-20261105-0004', 'cus005', 'レストラン ファームキッチン', '2026-11-09', 'instructed', 'ヤマト運輸', '', 'レストラン ファームキッチン', '〒321-0004 栃木県みどり市大通り2-1', '', NULL, 'usr003', '2026-11-07T03:07:22.607Z'),
-  ('shp010', 2, 'AF-20261030-S001', 'ord010', 'AF-20261030-0001', 'cus010', 'Ａファーム取引先商事', '2026-11-07', 'confirmed', '佐川急便', '', 'Ａファーム取引先商事', '徳島県徳島市中央9-9-9', '', DEFAULT, 'usr010', '2026-11-07T03:07:22.608Z')
+  ('shp001', 1, 'SH-20261104-0001', 'ord006', 'ORD-20261030-0006', 'cus002', 'スーパーマルヨシ 本店', '2026-11-04', 'confirmed', 'ヤマト運輸', 'TRK100037', 'スーパーマルヨシ 本店', '〒321-0001 栃木県みどり市駅前4-5-6', '', '2026-11-04T03:17:17.539Z', 'usr003', '2026-11-07T03:17:17.539Z'),
+  ('shp002', 1, 'SH-20261105-0002', 'ord007', 'ORD-20261031-0007', 'cus001', 'JAみどり 農産物直売所', '2026-11-05', 'confirmed', '佐川急便', 'TRK100074', 'JAみどり 農産物直売所', '〒321-0000 栃木県みどり市中央1-2-3', '', '2026-11-05T03:17:17.539Z', 'usr003', '2026-11-07T03:17:17.539Z'),
+  ('shp003', 1, 'SH-20261107-0003', 'ord008', 'ORD-20261101-0008', 'cus003', 'みどり市学校給食センター', '2026-11-07', 'instructed', 'ヤマト運輸', '', 'みどり市学校給食センター', '〒321-0002 栃木県みどり市学園台7-8', '', NULL, 'usr003', '2026-11-07T03:17:17.539Z'),
+  ('shp004', 1, 'SH-20261107-0004', 'ord002', 'ORD-20261103-0002', 'cus001', 'JAみどり 農産物直売所', '2026-11-07', 'instructed', '自社配送', '', 'JAみどり 農産物直売所', '〒321-0000 栃木県みどり市中央1-2-3', '', NULL, 'usr003', '2026-11-07T03:17:17.539Z'),
+  ('shp005', 1, 'SH-20261108-0005', 'ord003', 'ORD-20261104-0003', 'cus003', 'みどり市学校給食センター', '2026-11-08', 'instructed', '佐川急便', '', 'みどり市学校給食センター', '〒321-0002 栃木県みどり市学園台7-8', '', NULL, 'usr003', '2026-11-07T03:17:17.539Z'),
+  ('shp006', 1, 'SH-20261109-0006', 'ord004', 'ORD-20261105-0004', 'cus005', 'レストラン ファームキッチン', '2026-11-09', 'instructed', 'ヤマト運輸', '', 'レストラン ファームキッチン', '〒321-0004 栃木県みどり市大通り2-1', '', NULL, 'usr003', '2026-11-07T03:17:17.539Z'),
+  ('shp010', 2, 'AF-20261030-S001', 'ord010', 'AF-20261030-0001', 'cus010', 'Ａファーム取引先商事', '2026-11-07', 'confirmed', '佐川急便', '', 'Ａファーム取引先商事', '徳島県徳島市中央9-9-9', '', DEFAULT, 'usr010', '2026-11-07T03:17:17.540Z')
 on conflict (id) do nothing;
 
 -- shipment_lines（16件）
 insert into shipment_lines (id, organization_id, shipment_id, order_line_id, item_id, item_name, unit, quantity, lot_no, notes) values
-  ('xycqdrkwgotin', 1, 'shp001', 'ord006l1', 'itm012', 'じゃがいも', 'ケース', 35, '', ''),
-  ('xjas8kcx4otin', 1, 'shp001', 'ord006l2', 'itm014', 'ブロッコリー', 'ケース', 12, '', ''),
-  ('xucdq3j25otin', 1, 'shp002', 'ord007l1', 'itm006', 'キャベツ', 'ケース', 30, '', ''),
-  ('xsgrs1xumotin', 1, 'shp002', 'ord007l2', 'itm009', 'だいこん', 'ケース', 20, '', ''),
-  ('xe5nzad8fotin', 1, 'shp003', 'ord008l1', 'itm003', 'きゅうり', 'ケース', 18, '', ''),
-  ('x421cema1otin', 1, 'shp003', 'ord008l2', 'itm007', 'レタス', 'ケース', 12, '', ''),
-  ('xsebhahggotin', 1, 'shp004', 'ord002l1', 'itm006', 'キャベツ', 'ケース', 40, '', ''),
-  ('xhq8h26hdotin', 1, 'shp004', 'ord002l2', 'itm009', 'だいこん', 'ケース', 30, '', ''),
-  ('x4q55f4zlotin', 1, 'shp004', 'ord002l3', 'itm011', 'たまねぎ', 'ケース', 25, '', ''),
-  ('xpsgd4ozdotin', 1, 'shp005', 'ord003l1', 'itm004', 'なす', 'ケース', 25, '', ''),
-  ('x1twe1rz2otin', 1, 'shp005', 'ord003l2', 'itm010', 'にんじん', 'ケース', 20, '', ''),
-  ('x1v1rjtraotin', 1, 'shp005', 'ord003l3', 'itm013', 'ねぎ', 'ケース', 15, '', ''),
-  ('xnzzbu7shotin', 1, 'shp006', 'ord004l1', 'itm002', 'ミニトマト', 'ケース', 12, '', ''),
-  ('xcvv61jhqotin', 1, 'shp006', 'ord004l2', 'itm005', 'ピーマン', 'ケース', 10, '', ''),
-  ('xwx3uxc2rotin', 1, 'shp006', 'ord004l3', 'itm008', 'ほうれん草', 'ケース', 8, '', ''),
+  ('x5ycnl8811kkj', 1, 'shp001', 'ord006l1', 'itm012', 'じゃがいも', 'ケース', 35, '', ''),
+  ('x3q9f69xw1kkj', 1, 'shp001', 'ord006l2', 'itm014', 'ブロッコリー', 'ケース', 12, '', ''),
+  ('xwuv800rc1kkj', 1, 'shp002', 'ord007l1', 'itm006', 'キャベツ', 'ケース', 30, '', ''),
+  ('xkvzga0xc1kkj', 1, 'shp002', 'ord007l2', 'itm009', 'だいこん', 'ケース', 20, '', ''),
+  ('x4wxgwbwl1kkj', 1, 'shp003', 'ord008l1', 'itm003', 'きゅうり', 'ケース', 18, '', ''),
+  ('xp0va14sj1kkj', 1, 'shp003', 'ord008l2', 'itm007', 'レタス', 'ケース', 12, '', ''),
+  ('x95e9nh421kkj', 1, 'shp004', 'ord002l1', 'itm006', 'キャベツ', 'ケース', 40, '', ''),
+  ('xmn6681co1kkj', 1, 'shp004', 'ord002l2', 'itm009', 'だいこん', 'ケース', 30, '', ''),
+  ('x2xjz30kc1kkj', 1, 'shp004', 'ord002l3', 'itm011', 'たまねぎ', 'ケース', 25, '', ''),
+  ('xdsg2mzi91kkj', 1, 'shp005', 'ord003l1', 'itm004', 'なす', 'ケース', 25, '', ''),
+  ('xv6u0m0ph1kkj', 1, 'shp005', 'ord003l2', 'itm010', 'にんじん', 'ケース', 20, '', ''),
+  ('xw19o1cda1kkj', 1, 'shp005', 'ord003l3', 'itm013', 'ねぎ', 'ケース', 15, '', ''),
+  ('xszw4oarc1kkj', 1, 'shp006', 'ord004l1', 'itm002', 'ミニトマト', 'ケース', 12, '', ''),
+  ('x52bbi2kq1kkj', 1, 'shp006', 'ord004l2', 'itm005', 'ピーマン', 'ケース', 10, '', ''),
+  ('xphumbmdp1kkj', 1, 'shp006', 'ord004l3', 'itm008', 'ほうれん草', 'ケース', 8, '', ''),
   ('shl010', 2, 'shp010', 'odl010', 'itm010', 'Ａファーム トマト 5kg', 'ケース', 3, 'AF-LOT-001', '')
 on conflict (id) do nothing;
 
 -- stock_movements（19件）
 insert into stock_movements (id, organization_id, moved_at, move_date, move_type, item_id, item_name, quantity, balance_after, ref_table, ref_id, ref_no, operator_id, notes, created_at) values
-  ('x68g9rwfpotim', 1, '2026-10-26T03:07:22.606Z', '2026-10-26', 'receipt', 'itm001', 'トマト', 80, 122, 'receipts', 'rcv001', 'RC-20261026-0001', 'usr002', '', DEFAULT),
-  ('x1vv1x0biotim', 1, '2026-10-26T03:07:22.606Z', '2026-10-26', 'receipt', 'itm003', 'きゅうり', 60, 72, 'receipts', 'rcv001', 'RC-20261026-0001', 'usr002', '', DEFAULT),
-  ('xpf6dggueotim', 1, '2026-10-26T03:07:22.606Z', '2026-10-26', 'receipt', 'itm006', 'キャベツ', 120, 186, 'receipts', 'rcv001', 'RC-20261026-0001', 'usr002', '', DEFAULT),
-  ('x2b4ba5miotim', 1, '2026-10-29T03:07:22.606Z', '2026-10-29', 'receipt', 'itm016', '段ボール箱 10kg', 1000, 1720, 'receipts', 'rcv002', 'RC-20261029-0002', 'usr002', '', DEFAULT),
-  ('x2018i2i4otim', 1, '2026-10-29T03:07:22.606Z', '2026-10-29', 'receipt', 'itm017', '段ボール箱 5kg', 800, 1210, 'receipts', 'rcv002', 'RC-20261029-0002', 'usr002', '', DEFAULT),
-  ('xdulfwp90otim', 1, '2026-10-29T03:07:22.606Z', '2026-10-29', 'receipt', 'itm019', 'プラスチックコンテナ', 60, 124, 'receipts', 'rcv002', 'RC-20261029-0002', 'usr002', '', DEFAULT),
-  ('xcq43pzn8otim', 1, '2026-11-01T03:07:22.606Z', '2026-11-01', 'receipt', 'itm004', 'なす', 50, 83, 'receipts', 'rcv003', 'RC-20261101-0003', 'usr002', '', DEFAULT),
-  ('xswbp0ubhotim', 1, '2026-11-01T03:07:22.606Z', '2026-11-01', 'receipt', 'itm011', 'たまねぎ', 100, 173, 'receipts', 'rcv003', 'RC-20261101-0003', 'usr002', '', DEFAULT),
-  ('xpr987zsiotim', 1, '2026-11-01T03:07:22.606Z', '2026-11-01', 'receipt', 'itm009', 'だいこん', 70, 121, 'receipts', 'rcv003', 'RC-20261101-0003', 'usr002', '', DEFAULT),
-  ('x6j6zuvszotim', 1, '2026-11-04T03:07:22.606Z', '2026-11-04', 'receipt', 'itm018', '発泡スチロール箱', 120, 208, 'receipts', 'rcv004', 'RC-20261104-0004', 'usr002', '', DEFAULT),
-  ('xszzynx8sotim', 1, '2026-11-04T03:07:22.606Z', '2026-11-04', 'receipt', 'itm020', '結束バンド', 3000, 4450, 'receipts', 'rcv004', 'RC-20261104-0004', 'usr002', '', DEFAULT),
-  ('x7sjg8peootim', 1, '2026-11-04T03:07:22.606Z', '2026-11-04', 'receipt', 'itm025', 'ラベルシール', 5000, 8800, 'receipts', 'rcv004', 'RC-20261104-0004', 'usr002', '', DEFAULT),
-  ('xog6jr6h4otim', 1, '2026-11-06T03:07:22.606Z', '2026-11-06', 'receipt', 'itm001', 'トマト', 60, 182, 'receipts', 'rcv005', 'RC-20261106-0005', 'usr002', '', DEFAULT),
-  ('xkmlto9ugotim', 1, '2026-11-06T03:07:22.606Z', '2026-11-06', 'receipt', 'itm007', 'レタス', 40, 64, 'receipts', 'rcv005', 'RC-20261106-0005', 'usr002', '', DEFAULT),
-  ('xlhdcdzz8otim', 1, '2026-11-06T03:07:22.606Z', '2026-11-06', 'receipt', 'itm013', 'ねぎ', 30, 66, 'receipts', 'rcv005', 'RC-20261106-0005', 'usr002', '', DEFAULT),
-  ('x0edxkiu3otin', 1, '2026-11-07T03:07:22.607Z', '2026-11-07', 'shipment', 'itm012', 'じゃがいも', -35, -21, 'shipments', 'shp001', 'SH-20261104-0001', 'usr003', '', DEFAULT),
-  ('xypsr389botin', 1, '2026-11-07T03:07:22.607Z', '2026-11-07', 'shipment', 'itm014', 'ブロッコリー', -12, -6, 'shipments', 'shp001', 'SH-20261104-0001', 'usr003', '', DEFAULT),
-  ('xntkjep0dotin', 1, '2026-11-07T03:07:22.607Z', '2026-11-07', 'shipment', 'itm006', 'キャベツ', -30, 156, 'shipments', 'shp002', 'SH-20261105-0002', 'usr003', '', DEFAULT),
-  ('x2dnqh0ilotin', 1, '2026-11-07T03:07:22.607Z', '2026-11-07', 'shipment', 'itm009', 'だいこん', -20, 101, 'shipments', 'shp002', 'SH-20261105-0002', 'usr003', '', DEFAULT)
+  ('x3kthh0ri1kki', 1, '2026-10-26T03:17:17.538Z', '2026-10-26', 'receipt', 'itm001', 'トマト', 80, 122, 'receipts', 'rcv001', 'RC-20261026-0001', 'usr002', '', DEFAULT),
+  ('xljg2rrul1kki', 1, '2026-10-26T03:17:17.538Z', '2026-10-26', 'receipt', 'itm003', 'きゅうり', 60, 72, 'receipts', 'rcv001', 'RC-20261026-0001', 'usr002', '', DEFAULT),
+  ('xqcmjohmu1kki', 1, '2026-10-26T03:17:17.538Z', '2026-10-26', 'receipt', 'itm006', 'キャベツ', 120, 186, 'receipts', 'rcv001', 'RC-20261026-0001', 'usr002', '', DEFAULT),
+  ('xwhc4eibp1kki', 1, '2026-10-29T03:17:17.538Z', '2026-10-29', 'receipt', 'itm016', '段ボール箱 10kg', 1000, 1720, 'receipts', 'rcv002', 'RC-20261029-0002', 'usr002', '', DEFAULT),
+  ('x9o2vu56z1kki', 1, '2026-10-29T03:17:17.538Z', '2026-10-29', 'receipt', 'itm017', '段ボール箱 5kg', 800, 1210, 'receipts', 'rcv002', 'RC-20261029-0002', 'usr002', '', DEFAULT),
+  ('x7679j8jg1kki', 1, '2026-10-29T03:17:17.538Z', '2026-10-29', 'receipt', 'itm019', 'プラスチックコンテナ', 60, 124, 'receipts', 'rcv002', 'RC-20261029-0002', 'usr002', '', DEFAULT),
+  ('xhee02pnv1kki', 1, '2026-11-01T03:17:17.538Z', '2026-11-01', 'receipt', 'itm004', 'なす', 50, 83, 'receipts', 'rcv003', 'RC-20261101-0003', 'usr002', '', DEFAULT),
+  ('xntb1m6ki1kki', 1, '2026-11-01T03:17:17.538Z', '2026-11-01', 'receipt', 'itm011', 'たまねぎ', 100, 173, 'receipts', 'rcv003', 'RC-20261101-0003', 'usr002', '', DEFAULT),
+  ('xdwxtdhqg1kki', 1, '2026-11-01T03:17:17.538Z', '2026-11-01', 'receipt', 'itm009', 'だいこん', 70, 121, 'receipts', 'rcv003', 'RC-20261101-0003', 'usr002', '', DEFAULT),
+  ('xgsleg0m51kki', 1, '2026-11-04T03:17:17.538Z', '2026-11-04', 'receipt', 'itm018', '発泡スチロール箱', 120, 208, 'receipts', 'rcv004', 'RC-20261104-0004', 'usr002', '', DEFAULT),
+  ('xg0fj00zn1kki', 1, '2026-11-04T03:17:17.538Z', '2026-11-04', 'receipt', 'itm020', '結束バンド', 3000, 4450, 'receipts', 'rcv004', 'RC-20261104-0004', 'usr002', '', DEFAULT),
+  ('x5ixw83nk1kki', 1, '2026-11-04T03:17:17.538Z', '2026-11-04', 'receipt', 'itm025', 'ラベルシール', 5000, 8800, 'receipts', 'rcv004', 'RC-20261104-0004', 'usr002', '', DEFAULT),
+  ('x6j7ovg9u1kki', 1, '2026-11-06T03:17:17.538Z', '2026-11-06', 'receipt', 'itm001', 'トマト', 60, 182, 'receipts', 'rcv005', 'RC-20261106-0005', 'usr002', '', DEFAULT),
+  ('xu9jpo0pf1kki', 1, '2026-11-06T03:17:17.538Z', '2026-11-06', 'receipt', 'itm007', 'レタス', 40, 64, 'receipts', 'rcv005', 'RC-20261106-0005', 'usr002', '', DEFAULT),
+  ('xnrnp03cq1kki', 1, '2026-11-06T03:17:17.538Z', '2026-11-06', 'receipt', 'itm013', 'ねぎ', 30, 66, 'receipts', 'rcv005', 'RC-20261106-0005', 'usr002', '', DEFAULT),
+  ('xvso9w5d91kkj', 1, '2026-11-07T03:17:17.539Z', '2026-11-07', 'shipment', 'itm012', 'じゃがいも', -35, -21, 'shipments', 'shp001', 'SH-20261104-0001', 'usr003', '', DEFAULT),
+  ('xwyy9jrez1kkj', 1, '2026-11-07T03:17:17.539Z', '2026-11-07', 'shipment', 'itm014', 'ブロッコリー', -12, -6, 'shipments', 'shp001', 'SH-20261104-0001', 'usr003', '', DEFAULT),
+  ('xa3k5acwv1kkj', 1, '2026-11-07T03:17:17.539Z', '2026-11-07', 'shipment', 'itm006', 'キャベツ', -30, 156, 'shipments', 'shp002', 'SH-20261105-0002', 'usr003', '', DEFAULT),
+  ('x1dct2mim1kkj', 1, '2026-11-07T03:17:17.539Z', '2026-11-07', 'shipment', 'itm009', 'だいこん', -20, 101, 'shipments', 'shp002', 'SH-20261105-0002', 'usr003', '', DEFAULT)
 on conflict (id) do nothing;
 
 -- number_sequences（24件）

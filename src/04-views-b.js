@@ -697,6 +697,28 @@ Views.settings = () => {
       </div>
     </div>
     <div class="card">
+      <div class="card-h"><h2>${ico('cloud', 16)} Supabase 接続設定</h2><span class="sub">接続情報は環境変数から自動取得（ソース非記載）</span>
+        <div class="sp"><span class="cfg-src ${(typeof SB !== 'undefined' && SB.ready) ? 'ok' : 'off'}">${(typeof SB !== 'undefined' && SB.ready) ? '接続中' : 'オフライン'}</span></div></div>
+      <div class="card-b vstack" style="gap:10px">
+        ${(() => {
+          const ci = (typeof SB !== 'undefined' && SB.configInfo) ? SB.configInfo() : { configured: false, label: '未設定', maskedUrl: '', transport: '', lastError: null };
+          return `
+          <div class="cfg-row"><span class="k">取得元</span><span class="v">${esc(ci.label)}</span></div>
+          <div class="cfg-row"><span class="k">プロジェクト</span><span class="v mono">${esc(ci.maskedUrl || '（未設定）')}</span></div>
+          <div class="cfg-row"><span class="k">接続方式</span><span class="v">${esc(ci.transport === 'realtime' ? 'リアルタイム' : ci.transport === 'polling' ? 'ポーリング（45秒）' : '未接続')}</span></div>
+          <div class="cfg-row"><span class="k">最終同期</span><span class="v">${ci.lastSyncAt ? esc(dtJP(ci.lastSyncAt)) : '—'}</span></div>
+          ${ci.lastError ? `<div class="note rose">${ico('alert', 15)} ${esc(ci.lastError)}</div>` : ''}`;
+        })()}
+        <div class="note">${ico('settings', 15)} 接続情報の優先順位：<b>① 環境変数（ビルド時）→ ② 実行時オーバーライド → ③ HTMLメタタグ → ④ /api/config（Vercel）→ ⑤ supabase.config.json → ⑥ セッション暫定設定</b>。どれも無い場合はオフラインモードで起動します。</div>
+        <div class="hstack" style="flex-wrap:wrap">
+          <button class="btn sm" onclick="Actions.testSupabaseConnection()">${ico('check', 14)} 接続テスト</button>
+          <button class="btn sm" onclick="Actions.reloadSupabaseConfig()">${ico('refresh', 14)} 接続情報を再取得</button>
+          <button class="btn sm" onclick="Actions.tempSupabaseConfigForm()">${ico('settings', 14)} 暫定設定（このセッションのみ）</button>
+        </div>
+        <div class="tiny muted">環境変数：<code>NEXT_PUBLIC_SUPABASE_URL</code> / <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>（Vercel の Project Settings → Environment Variables）。Anon Key は公開前提のキーです。Service Role Key は使用しないでください。</div>
+      </div>
+    </div>
+    <div class="card">
       <div class="card-h"><h2>${ico('trend', 16)} 将来拡張</h2><span class="sub">スキーマ・画面に受け口を用意済み</span></div>
       <div class="card-b"><div class="grid g3">
         ${ext.map(([k, title, desc, icon, ready]) => `<div style="border:1px solid var(--ink-200);border-radius:14px;padding:15px;background:#fff">

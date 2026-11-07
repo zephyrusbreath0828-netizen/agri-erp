@@ -20,7 +20,7 @@ function mockFetch(url, opt) {
   opt = opt || {};
   /* Supabase実機と同じ検査: GETを含む全リクエストに apikey/Authorization が必須 */
   const hd = opt.headers || {};
-  if (!hd.apikey || !hd.Authorization || hd.Authorization !== 'Bearer ' + hd.apikey || hd.apikey !== 'MOCKKEY') {
+  if (!hd.apikey || !hd.Authorization || hd.Authorization !== 'Bearer ' + hd.apikey || hd.apikey !== 'MOCKKEYMOCKKEYMOCKKEY') {
     return jres({ message: 'No API key found in request' }, 401);
   }
   const u = new URL(url);
@@ -121,7 +121,9 @@ function run(file) {
 run('01-store.js');
 run('00-supabase.js');
 sandbox.SB = sandbox.__X.SB; sandbox.Store = sandbox.__X.Store; sandbox.buildSeed = sandbox.__X.buildSeed;
-sandbox.SB.cfg.url = 'https://mock.supabase.co'; sandbox.SB.cfg.key = 'MOCKKEY';   /* 接続設定のソース焼き込み化に伴い cfg へ直接注入 */
+/* 接続情報は環境変数（ビルド時焼き込み）から解決されるため、window.__AGRI_ENV__ を注入する */
+const MOCK_KEY = 'MOCKKEYMOCKKEYMOCKKEY';
+sandbox.window.__AGRI_ENV__ = { NEXT_PUBLIC_SUPABASE_URL: 'https://mock.supabase.co', NEXT_PUBLIC_SUPABASE_ANON_KEY: MOCK_KEY };
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failed = 0;
@@ -129,7 +131,7 @@ const ok = (cond, name) => { console.log((cond ? 'PASS' : 'FAIL') + ' ' + name);
 
 (async () => {
   /* 1. 初期化: 空DB → デモシード生成 → 初回投入 */
-  const r = await sandbox.SB.init();
+  const r = await sandbox.SB.init({ skipRemote: true });
   ok(r.ok === true, 'init ok');
   const db = sandbox.Store.db;
   ok(tables.users && Object.keys(tables.users).length === 6, 'users seeded 6, got ' + (tables.users ? Object.keys(tables.users).length : 0));

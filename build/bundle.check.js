@@ -7,17 +7,34 @@
      supabase-js が読み込めない環境では45秒ポーリングにフォールバック。
    - 認証は Postgres 関数 app_verify_login（pgcrypto bcrypt）でサーバー側照合。
      パスワードハッシュはクライアントに送らない。
-   - 接続設定（Project URL / Anon Key）は下記 FIXED_URL / FIXED_KEY に**アプリ内部で固定**。
-     利用者による入力フォーム・URLパラメータ指定は廃止（配布先PCでも初期設定不要）。
+   - 接続設定（Project URL / Anon Key）は**ソースコードに書かない**。実行時に次の順で解決する：
+       window.__AGRI_ENV__（ビルド時に Vercel 環境変数から焼き込み）
+       → window.__AGRI_SUPABASE__（配信側での手動オーバーライド）
+       → <meta name="agri-supabase-url / agri-supabase-anon-key">
+       → /api/config（Vercel サーバーレス関数が NEXT_PUBLIC_* を返す）
+       → supabase.config.json（非Vercelの静的ホスティング・任意）
+       → sessionStorage agri_sb_cfg（障害時の暫定入力・セッションのみ）
+     どれも無ければ**オフラインモード**で起動する（データはセッション内のみ）。
    ========================================================================== */
 'use strict';
 const SB = (() => {
-  /* ---------- 接続設定（アプリ内部に固定・ソース焼き込み） ----------
-     この2つの定数に本番の Supabase プロジェクト情報を記入して再ビルドする
-     （python3 build/assemble.py）。利用者はログインIDとパスワードのみで利用できる。 */
-  const FIXED_URL = 'SUPABASE_PROJECT_URL_HERE';   // ← 例: https://xxxxxxxx.supabase.co（未設定なら空文字）
-  const FIXED_KEY = 'SUPABASE_ANON_KEY_HERE';      // ← 例: eyJhbGciOi...（Anon Key / Publishable Key どちらも可）
-  const cfg = { url: FIXED_URL, key: FIXED_KEY, realtime: true, pollSec: 45 };
+  /* ---------- 接続設定（実行時解決・ソース非記載） ----------
+     環境変数は Vercel の NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY を利用する。
+     ビルド時に値が存在すれば HTML へ焼き込み（build/assemble.*）、無ければ配信時に解決する。
+     ※ 焼き込むのは公開前提の Anon Key のみ。Service Role Key は絶対に使用しない。 */
+  const ENV_KEYS = {
+    url: ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_URL', 'VITE_SUPABASE_URL'],
+    key: ['NEXT_PUBLIC_SUPABASE_ANON_KEY', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_ANON_KEY', 'VITE_SUPABASE_ANON_KEY']
+  };
+  const CONFIG_SOURCES = [
+    { id: 'env',     label: '環境変数（ビルド時）' },
+    { id: 'window',  label: '実行時オーバーライド' },
+    { id: 'meta',    label: 'HTMLメタタグ' },
+    { id: 'api',     label: '/api/config（Vercel環境変数）' },
+    { id: 'json',    label: 'supabase.config.json' },
+    { id: 'session', label: 'セッション暫定設定' }
+  ];
+  const cfg = { url: '', key: '', realtime: true, pollSec: 45, source: '' };
   const api = {
     cfg, ready: false, transport: '', lastSyncAt: null, lastError: null,
     TABLES: null, verifyLogin: null, setPassword: null, init: null,
@@ -386,19 +403,124 @@ const SB = (() => {
     if (em && em.value && em.value.enabled !== undefined) db.settings.emergencyAdmin = em.value.enabled !== false;
     return db;
   }
-  function readCfg() {
-    /* 接続情報はソース内固定（FIXED_URL / FIXED_KEY）。
-       入力フォーム・?sb_url=&sb_key= パラメータ・sessionStorage は廃止。
-       定数が未記入（プレースホルダのまま・空）の場合は未設定として扱う */
-    const u = String(cfg.url || ''), k = String(cfg.key || '');
-    if (!u || !k || u.includes('SUPABASE_PROJECT_URL_HERE') || k.includes('SUPABASE_ANON_KEY_HERE')) return null;
-    return { url: u, key: k };
+  /* ---------- 接続情報の解決（複数ソース・失敗しても停止しない） ---------- */
+  function pickEnv(obj, keys) {
+    for (const k of keys) {
+      const v = obj ? obj[k] : null;
+      if (v) return String(v);
+    }
+    return '';
+  }
+  /* 妥当性: http(s) のURLと、プレースホルダでない十分な長さのキー */
+  function usable(u, k) {
+    const url = String(u || '').trim().replace(/\/+$/, '');
+    const key = String(k || '').trim();
+    if (!/^https?:\/\//i.test(url)) return null;
+    if (key.length < 20 || /YOUR|_HERE|PLACEHOLDER|xxxx|example\.com/i.test(key)) return null;
+    return { url, key };
+  }
+  async function fetchJson(path, ms) {
+    try {
+      if (typeof fetch !== 'function') return null;
+      const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+      const timer = ctl ? setTimeout(() => ctl.abort(), ms || 3500) : null;
+      const res = await fetch(path, { headers: { Accept: 'application/json' }, cache: 'no-store', credentials: 'same-origin', signal: ctl ? ctl.signal : undefined });
+      if (timer) clearTimeout(timer);
+      if (!res || !res.ok) return null;
+      const ct = (res.headers && res.headers.get && res.headers.get('content-type')) || '';
+      if (ct && ct.indexOf('json') < 0) return null;
+      return await res.json();
+    } catch (e) { return null; }
+  }
+  function fromObject(o) {
+    if (!o) return null;
+    return usable(o.supabaseUrl || o.url || o.NEXT_PUBLIC_SUPABASE_URL,
+                  o.supabaseAnonKey || o.anonKey || o.key || o.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  }
+  /* 解決チェーン（opt.skipRemote でネットワーク探索を省略） */
+  async function discoverConfig(opt) {
+    opt = opt || {};
+    const env = (typeof window !== 'undefined' && window.__AGRI_ENV__) || {};
+    let c = usable(pickEnv(env, ENV_KEYS.url), pickEnv(env, ENV_KEYS.key));
+    if (c) return Object.assign(c, { source: 'env' });
+
+    const wo = (typeof window !== 'undefined' && window.__AGRI_SUPABASE__) || {};
+    c = usable(wo.url || wo.supabaseUrl, wo.anonKey || wo.key || wo.supabaseAnonKey);
+    if (c) return Object.assign(c, { source: 'window' });
+
+    try {
+      const mu = document.querySelector('meta[name="agri-supabase-url"]');
+      const mk = document.querySelector('meta[name="agri-supabase-anon-key"]');
+      c = usable(mu && mu.getAttribute('content'), mk && mk.getAttribute('content'));
+      if (c) return Object.assign(c, { source: 'meta' });
+    } catch (e) { /* noop */ }
+
+    if (!opt.skipRemote) {
+      c = fromObject(await fetchJson('api/config'));
+      if (c) return Object.assign(c, { source: 'api' });
+      c = fromObject(await fetchJson('supabase.config.json'));
+      if (c) return Object.assign(c, { source: 'json' });
+    }
+
+    try {
+      const s = JSON.parse(sessionStorage.getItem('agri_sb_cfg') || 'null');
+      c = usable(s && s.url, s && s.key);
+      if (c) return Object.assign(c, { source: 'session' });
+    } catch (e) { /* noop */ }
+    return null;
+  }
+  function sourceLabel(id) {
+    const s = CONFIG_SOURCES.find(x => x.id === id);
+    return s ? s.label : '未設定';
+  }
+  function maskUrl(u) {
+    const s = String(u || '');
+    return s ? s.replace(/^https?:\/\//, '').replace(/^([^.]{2})[^.]*/, '$1***') : '';
+  }
+  function configInfo() {
+    return {
+      configured: !!(cfg.url && cfg.key),
+      source: cfg.source || '',
+      label: cfg.source ? sourceLabel(cfg.source) : '未設定',
+      url: cfg.url || '',
+      maskedUrl: maskUrl(cfg.url),
+      ready: api.ready,
+      transport: api.transport || '',
+      lastSyncAt: api.lastSyncAt || null,
+      lastError: api.lastError || null
+    };
+  }
+  async function reloadConfig() {
+    const c = await discoverConfig();
+    if (!c) { cfg.url = ''; cfg.key = ''; cfg.source = ''; return { ok: false, message: '接続情報が見つかりません（環境変数が未設定のためオフラインで動作します）' }; }
+    const changed = c.url !== cfg.url || c.key !== cfg.key;
+    cfg.url = c.url; cfg.key = c.key; cfg.source = c.source;
+    return { ok: true, changed, source: c.source, label: sourceLabel(c.source) };
+  }
+  /* 接続テスト（RLS有効でも 200/401 が返れば到達性は確認できる） */
+  async function testConnection() {
+    if (!cfg.url) return { ok: false, message: '接続情報が未設定です' };
+    const t0 = Date.now();
+    try {
+      const res = await fetch(cfg.url + '/rest/v1/', { headers: headers({ Accept: 'application/json' }), cache: 'no-store' });
+      const ms = Date.now() - t0;
+      if (res.ok || res.status === 401 || res.status === 404) return { ok: true, ms, status: res.status };
+      return { ok: false, ms, status: res.status, message: 'HTTP ' + res.status };
+    } catch (e) {
+      return { ok: false, message: String(e && e.message || e).slice(0, 120) };
+    }
   }
 
-  async function init() {
-    const c = readCfg();
-    if (!c || !c.url || !c.key) return { ok: false, reason: 'config', message: '接続設定（FIXED_URL / FIXED_KEY）が未設定です。src/00-supabase.js にSupabaseプロジェクトのURLとAnon Keyを記入して再ビルドしてください' };
-    cfg.url = String(c.url).replace(/\/$/, ''); cfg.key = c.key;
+  async function init(opt) {
+    const c = await discoverConfig(opt);
+    if (!c) {
+      cfg.url = ''; cfg.key = ''; cfg.source = '';
+      return {
+        ok: false, reason: 'config',
+        message: 'Supabaseの接続情報が見つかりません。Vercel の環境変数 NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY を設定して再デプロイしてください（未設定の場合はオフラインモードで動作します）'
+      };
+    }
+    cfg.url = c.url; cfg.key = c.key; cfg.source = c.source;
     try {
       const users = await req(sel('users'));
       if (!Array.isArray(users)) throw new Error('usersテーブルの応答が不正です');
@@ -458,13 +580,19 @@ const SB = (() => {
     }
   }
 
-  /* ---------- 接続設定フォーム（廃止） ----------
-     接続情報は FIXED_URL / FIXED_KEY に固定したため、URL / API Key の入力フォーム・
-     「接続して保存」ボタン・sessionStorage 保持は削除した。利用者はログインIDと
-     パスワードのみで利用する。 */
+  /* ---------- 接続設定の扱い ----------
+     通常は環境変数（Vercel）から自動取得するため、利用者の入力は不要。
+     障害時の暫定設定のみセッション内（sessionStorage agri_sb_cfg）に保持できる。
+     永続保存は行わない（localStorage は使用しない）。 */
 
   api.TABLES = TABLES;
   api.init = init;
+  api.discoverConfig = discoverConfig;
+  api.reloadConfig = reloadConfig;
+  api.testConnection = testConnection;
+  api.configInfo = configInfo;
+  api.sourceLabel = sourceLabel;
+  api.configSources = CONFIG_SOURCES;
   api.requestSync = requestSync;
   api.syncNow = syncNow;
   api.reseedAll = reseedAll;
@@ -2870,6 +2998,28 @@ Views.settings = () => {
             <div class="hstack" style="justify-content:space-between"><span class="sm muted">在庫トランザクション</span><span class="badge amber">${Store.db.movements.length} 件</span></div>
           </div>
         </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>${ico('cloud', 16)} Supabase 接続設定</h2><span class="sub">接続情報は環境変数から自動取得（ソース非記載）</span>
+        <div class="sp"><span class="cfg-src ${(typeof SB !== 'undefined' && SB.ready) ? 'ok' : 'off'}">${(typeof SB !== 'undefined' && SB.ready) ? '接続中' : 'オフライン'}</span></div></div>
+      <div class="card-b vstack" style="gap:10px">
+        ${(() => {
+          const ci = (typeof SB !== 'undefined' && SB.configInfo) ? SB.configInfo() : { configured: false, label: '未設定', maskedUrl: '', transport: '', lastError: null };
+          return `
+          <div class="cfg-row"><span class="k">取得元</span><span class="v">${esc(ci.label)}</span></div>
+          <div class="cfg-row"><span class="k">プロジェクト</span><span class="v mono">${esc(ci.maskedUrl || '（未設定）')}</span></div>
+          <div class="cfg-row"><span class="k">接続方式</span><span class="v">${esc(ci.transport === 'realtime' ? 'リアルタイム' : ci.transport === 'polling' ? 'ポーリング（45秒）' : '未接続')}</span></div>
+          <div class="cfg-row"><span class="k">最終同期</span><span class="v">${ci.lastSyncAt ? esc(dtJP(ci.lastSyncAt)) : '—'}</span></div>
+          ${ci.lastError ? `<div class="note rose">${ico('alert', 15)} ${esc(ci.lastError)}</div>` : ''}`;
+        })()}
+        <div class="note">${ico('settings', 15)} 接続情報の優先順位：<b>① 環境変数（ビルド時）→ ② 実行時オーバーライド → ③ HTMLメタタグ → ④ /api/config（Vercel）→ ⑤ supabase.config.json → ⑥ セッション暫定設定</b>。どれも無い場合はオフラインモードで起動します。</div>
+        <div class="hstack" style="flex-wrap:wrap">
+          <button class="btn sm" onclick="Actions.testSupabaseConnection()">${ico('check', 14)} 接続テスト</button>
+          <button class="btn sm" onclick="Actions.reloadSupabaseConfig()">${ico('refresh', 14)} 接続情報を再取得</button>
+          <button class="btn sm" onclick="Actions.tempSupabaseConfigForm()">${ico('settings', 14)} 暫定設定（このセッションのみ）</button>
+        </div>
+        <div class="tiny muted">環境変数：<code>NEXT_PUBLIC_SUPABASE_URL</code> / <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>（Vercel の Project Settings → Environment Variables）。Anon Key は公開前提のキーです。Service Role Key は使用しないでください。</div>
       </div>
     </div>
     <div class="card">
@@ -5295,6 +5445,53 @@ const Actions = {
     }, '削除する', 'danger');
   },
 
+  /* ------------------------- 接続設定（環境変数 / 暫定設定） ------------------------- */
+  async testSupabaseConnection() {
+    if (typeof SB === 'undefined' || !SB.testConnection) return UI.toast('接続テストを実行できません（未初期化）', 'err');
+    UI.toast('接続を確認しています…', 'info');
+    const r = await SB.testConnection();
+    if (r.ok) UI.toast(`接続OK（HTTP ${r.status} / ${r.ms}ms）`, 'ok');
+    else UI.toast('接続できません：' + (r.message || '不明なエラー'), 'err');
+  },
+  async reloadSupabaseConfig() {
+    if (typeof SB === 'undefined' || !SB.reloadConfig) return UI.toast('再取得できません（未初期化）', 'err');
+    const r = await SB.reloadConfig();
+    if (!r.ok) return UI.toast(r.message || '接続情報を取得できませんでした', 'warn');
+    UI.closeModal();
+    UI.toast(`接続情報を取得しました（${r.label}）。画面を再読み込みします`, 'ok');
+    setTimeout(() => location.reload(), 600);
+  },
+  /* 障害時の暫定設定（sessionStorage のみ・永続化しない） */
+  tempSupabaseConfigForm() {
+    if (!Role.canSystem(Auth.user)) return UI.toast('この操作はシステム管理者のみ利用できます', 'err');
+    const cur = (typeof SB !== 'undefined' && SB.configInfo) ? SB.configInfo() : {};
+    UI.modal('Supabase 暫定接続設定', 'このセッション内のみ有効（保存・配布物への記録は行いません）', `
+      <div class="note amber">${ico('alert', 15)} 通常運用では Vercel の環境変数 <code>NEXT_PUBLIC_SUPABASE_URL</code> / <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> を使用してください。ここでの設定は障害時の一時的な回避策で、タブを閉じると消えます。</div>
+      <div class="form-grid c2 mt12">
+        <div class="field span2"><label>Project URL</label><input class="inp" id="tmp_sb_url" value="${esc(cur.url || '')}" placeholder="https://xxxxxxxx.supabase.co"></div>
+        <div class="field span2"><label>Anon Key</label><input class="inp" id="tmp_sb_key" placeholder="Anon Key を入力（Publishable Key も可）"></div>
+      </div>`,
+      `<button class="btn" onclick="UI.closeModal()">キャンセル</button>
+       <button class="btn" onclick="Actions.clearTempSupabaseConfig()">暫定設定を解除</button>
+       <button class="btn primary" onclick="Actions.saveTempSupabaseConfig()">${ico('check', 15)} このセッションで使用</button>`);
+  },
+  saveTempSupabaseConfig() {
+    if (!Role.canSystem(Auth.user)) return UI.toast('この操作はシステム管理者のみ利用できます', 'err');
+    const g = n => (document.getElementById(n) || {}).value || '';
+    const url = g('tmp_sb_url').trim(), key = g('tmp_sb_key').trim();
+    if (!/^https?:\/\//i.test(url) || key.length < 20) return UI.toast('URLとAnon Keyを正しく入力してください', 'err');
+    try { sessionStorage.setItem('agri_sb_cfg', JSON.stringify({ url: url.replace(/\/+$/, ''), key })); } catch (e) { return UI.toast('保存できませんでした', 'err'); }
+    UI.closeModal();
+    UI.toast('暫定設定を適用しました。画面を再読み込みします', 'ok');
+    setTimeout(() => location.reload(), 500);
+  },
+  clearTempSupabaseConfig() {
+    try { sessionStorage.removeItem('agri_sb_cfg'); } catch (e) { /* noop */ }
+    UI.closeModal();
+    UI.toast('暫定設定を解除しました。画面を再読み込みします', 'warn');
+    setTimeout(() => location.reload(), 500);
+  },
+
   /* ------------------------- 設定・エクスポート ------------------------- */
   /* 緊急管理者ログインの有効／無効（管理者のみ） */
   saveEmergencyAdmin() {
@@ -5349,7 +5546,7 @@ const Actions = {
   const $ = id => document.getElementById(id);
   const err = $('loginErr');
   const warn = $('sbWarn');
-  /* 1) Supabase 接続（接続情報はアプリ内部固定・FIXED_URL / FIXED_KEY） */
+  /* 1) Supabase 接続（接続情報は環境変数等から実行時に解決・ソース非記載） */
   let sb = { ok: false, message: '' };
   try {
     sb = await SB.init();

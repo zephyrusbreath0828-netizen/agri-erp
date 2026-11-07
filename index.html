@@ -2,6 +2,9 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<!-- Supabase 接続情報（任意）: 環境変数を使わないホスティングではここに設定できます。空のままでOK -->
+<meta name="agri-supabase-url" content="">
+<meta name="agri-supabase-anon-key" content="">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>アグリERP｜農業法人向け統合業務システム</title>
 <meta name="description" content="在庫・受注・発注・出荷・帳票発行を一体化した農業法人向けクラウド型業務システム">
@@ -386,6 +389,14 @@ table.tb tfoot td{background:var(--ink-50);border-top:2px solid var(--ink-200)}
 .lock .ic{width:64px;height:64px;border-radius:20px;background:var(--rose-50);display:grid;place-items:center;color:var(--rose-500);margin-bottom:14px}
 .lock h3{font-size:16px;font-weight:800;color:var(--ink-800)}
 .lock p{font-size:12.5px;color:var(--ink-500);margin-top:5px;max-width:400px}
+
+/* ---------- 接続設定カード ---------- */
+.cfg-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 11px;border:1px solid var(--ink-200);border-radius:10px;background:#fff}
+.cfg-row .k{font-size:11.5px;color:var(--ink-500)}
+.cfg-row .v{font-size:12px;font-weight:700;color:var(--ink-800);text-align:right;word-break:break-all}
+.cfg-src{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--ink-100);color:var(--ink-600)}
+.cfg-src.ok{background:var(--green-50);color:var(--green-700)}
+.cfg-src.off{background:var(--amber-100);color:var(--amber-600)}
 
 /* ---------- 帳票テンプレート編集（2カラム＋PDFプレビュー） ---------- */
 .tpl-editor{display:grid;grid-template-columns:minmax(320px,410px) minmax(0,1fr);gap:16px;align-items:start}

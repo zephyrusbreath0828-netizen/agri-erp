@@ -72,9 +72,9 @@
 
 ## 6. 接続設定（ソース焼き込み・利用者の入力は不要）
 
-接続設定（Project URL / API Key）は `src/00-supabase.js` 冒頭の `FIXED_URL` / `FIXED_KEY` に**アプリ内部で固定**する（ログイン画面の入力フォーム・`?sb_url=` URLパラメータは廃止済み）。
+接続設定（Project URL / API Key）は **環境変数** で行う（ver 3.6〜）。Vercel の `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` に登録し、ビルド時に `window.__AGRI_ENV__` として焼き込むか、実行時に `/api/config` から取得する。ソースコードに接続情報は含めない（`FIXED_URL` / `FIXED_KEY` は廃止）。詳細は `docs/Supabase接続_環境変数化.md`。
 
-1. `src/00-supabase.js` の `FIXED_URL`（例: `https://xxxxxxxx.supabase.co`）と `FIXED_KEY`（Anon Key または Publishable Key）を記入する。
+1. Vercel の Environment Variables に `NEXT_PUBLIC_SUPABASE_URL`（例: `https://xxxxxxxx.supabase.co`）と `NEXT_PUBLIC_SUPABASE_ANON_KEY`（Anon Key または Publishable Key）を登録する。
 2. `python3 build/assemble.py` で再ビルドし、`build/agri-erp-supabase.html`（または .aspx）を配置する。
 3. 利用者はログインIDとパスワードのみで利用できる。配布先PCでの初期設定は不要。
 
@@ -100,7 +100,7 @@
 
 | 症状 | 原因と対処 |
 |---|---|
-| 「接続設定（FIXED_URL / FIXED_KEY）が未設定です」と表示される | `src/00-supabase.js` の FIXED_URL / FIXED_KEY が未記入。記入して `python3 build/assemble.py` で再ビルドする |
+| 「Supabaseの接続情報が見つかりません」と表示される | 環境変数 `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` が未設定。Vercel に登録して再デプロイする（または設定画面の「暫定設定」で一時的に指定） |
 | 「Supabaseに接続できませんでした」 | 01_create_tables.sql 未実行、または Project URL 誤り。SQL Editor 実行状況を確認 |
 | ログインできない（パスワードが一致しません） | 02_seed.sql 未実行でユーザー未登録の可能性。SQL Editor で users テーブルを確認 |
 | 変更が他端末に反映されない | Realtime 未有効の可能性。Database → Publications で supabase_realtime に全テーブルが登録済みか確認（未登録の場合は本スクリプト再実行）。登録済みなら45秒以内のポーリングで反映される |

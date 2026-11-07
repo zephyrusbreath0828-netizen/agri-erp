@@ -62,7 +62,8 @@ agri-erp-supabase/
 
 1. **Supabase プロジェクト作成**（無料プランで可）
 2. **SQL Editor で実行**: `sql/01_create_tables.sql` → 続けて `sql/02_seed.sql`
-3. **接続設定を焼き込んで再ビルド**: `src/00-supabase.js` 冒頭の `FIXED_URL` / `FIXED_KEY` に
+3. **接続設定（環境変数）**: Vercel の Environment Variables に `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` を登録してデプロイする（旧: `src/00-supabase.js` の `FIXED_URL` / `FIXED_KEY` は廃止）。詳細は `docs/Supabase接続_環境変数化.md`。
+   - 旧手順の参考: かつては `src/00-supabase.js` 冒頭の `FIXED_URL` / `FIXED_KEY` に
    本番の Project URL と API Key（Anon Key `eyJ...` ／ Publishable Key `sb_publishable_...` のどちらでも可。Settings → API Keys で確認）を記入し、`python3 build/assemble.py` で再ビルド
    → 利用者の入力は**ログインIDとパスワードのみ**。配布先PCでも初期設定は不要
    ※ 配置・動作確認には必ず **build/ 配下の単一ファイル**を使う。src/index.html は開発用（src/ を個別読み込み）。
@@ -88,13 +89,14 @@ admin / office / shipping のパスワードが `Temp1234!` に再設定され�
 
 ## 接続設定について（ソース焼き込み・入力フォーム廃止）
 
-接続設定（Supabase Project URL / Anon Key）は `src/00-supabase.js` 冒頭の `FIXED_URL` / `FIXED_KEY` に
+接続設定（Supabase Project URL / Anon Key）は **環境変数**（`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`）で行います（旧: `src/00-supabase.js` の `FIXED_URL` / `FIXED_KEY` は廃止）。ソースに接続情報は含まれないため、ZIPを再生成しても設定が失われません。詳細は `docs/Supabase接続_環境変数化.md`。
+旧手順（参考）: かつては `src/00-supabase.js` 冒頭の `FIXED_URL` / `FIXED_KEY` に
 **アプリ内部に固定**してあります。ログイン画面のURL入力欄・API Key入力欄・「接続して保存」ボタン、
 URLパラメータ（`?sb_url=&sb_key=`）・sessionStorage 保持は廃止済みです。利用者はログインIDとパスワードのみ入力します。
 
 接続設定の変更手順:
 
-1. `src/00-supabase.js` の `FIXED_URL`（例: `https://xxxxxxxx.supabase.co`）と `FIXED_KEY`（Anon Key）を書き換える
+1. Vercel の Environment Variables に `NEXT_PUBLIC_SUPABASE_URL`（例: `https://xxxxxxxx.supabase.co`）と `NEXT_PUBLIC_SUPABASE_ANON_KEY`（Anon Key）を登録する
 2. `python3 build/assemble.py` で再ビルド
 3. `build/agri-erp-supabase.html`（または .aspx）を配置し直す — 配布先PCでの初期設定は不要
 
@@ -268,4 +270,18 @@ sql/09_roles_permissions.sql   -- 08_multi_tenant.sql の後に実行
 ### 検証
 ```
 node scripts/roles_smoke.js
+```
+
+## Supabase 接続方式：環境変数対応 ver 3.6
+
+- `FIXED_URL` / `FIXED_KEY` の直書きを廃止。**接続情報はソースに含めません**（ZIP再生成で失われません）
+- 解決順：① 環境変数（ビルド時焼き込み）→ ② 実行時オーバーライド → ③ HTMLメタタグ → ④ `/api/config`（Vercel）→ ⑤ `supabase.config.json` → ⑥ セッション暫定設定 → なしなら**オフライン**
+- Vercel 環境変数：`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- ビルド：`node build/assemble.js --dist`（`vercel.json` 設定済み）／ローカルは `python3 build/assemble.py`
+- 設定画面「システム設定 → Supabase 接続設定」で取得元・接続テスト・再取得・暫定設定が可能
+
+### 検証
+```
+node scripts/env_smoke.js      # 解決チェーン・オフラインfallback・再生成の同一性
+node scripts/build_parity.js   # assemble.py / assemble.js の出力一致
 ```
