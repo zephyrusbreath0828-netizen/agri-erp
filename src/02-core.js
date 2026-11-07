@@ -1,10 +1,55 @@
 /* ==========================================================================
    アグリERP — 認証・権限・UI 基盤・ルーティング
    ========================================================================== */
+/* ==========================================================================
+   権限ロール（ver 3.5）
+   system_admin : システム管理者 — 組織マスタ／全組織閲覧／全ユーザー閲覧／システム設定
+   org_admin    : 組織管理者   — 自組織の会社・拠点・帳票テンプレート・ユーザー管理
+   manager      : 管理担当     — 業務全般＋マスタ参照（管理機能は不可）
+   user         : 一般         — 業務の実行（受注・発注・在庫・出荷・帳票）
+   ※ 旧ロール（admin / office / shipping）は Role.normalize() と SQL で自動移行する
+   ========================================================================== */
 const ROLES = {
-  admin:    { label: '管理者',   desc: 'すべての機能を利用できます', color: 'green',  icon: 'shield', av: 'linear-gradient(140deg,#34d399,#0ea5e9)' },
-  office:   { label: '事務担当', desc: '受注・発注・在庫・帳票を担当', color: 'sky',    icon: 'clipboard', av: 'linear-gradient(140deg,#38bdf8,#8b5cf6)' },
-  shipping: { label: '出荷担当', desc: '出荷指示・確定・帳票印刷を担当', color: 'amber',  icon: 'truck', av: 'linear-gradient(140deg,#fbbf24,#f97316)' }
+  system_admin: { label: 'システム管理者', desc: '全組織の閲覧・組織マスタ・システム設定', color: 'violet', icon: 'shield', av: 'linear-gradient(140deg,#8b5cf6,#0ea5e9)' },
+  org_admin:    { label: '組織管理者',     desc: '自組織のマスタ・ユーザー管理',           color: 'green',  icon: 'shield', av: 'linear-gradient(140deg,#34d399,#0ea5e9)' },
+  manager:      { label: '管理担当',       desc: '業務全般の管理・マスタ参照',             color: 'sky',    icon: 'clipboard', av: 'linear-gradient(140deg,#38bdf8,#8b5cf6)' },
+  user:         { label: '一般',           desc: '日常業務（受注・在庫・出荷・帳票）',     color: 'amber',  icon: 'user', av: 'linear-gradient(140deg,#fbbf24,#f97316)' }
+};
+const ROLE_KEYS = ['system_admin', 'org_admin', 'manager', 'user'];
+
+/* ロール判定・正規化（旧ロールの自動移行を含む単一の入口） */
+const Role = {
+  /* 旧 admin は「システム管理者フラグがあれば system_admin、なければ org_admin」 */
+  normalize(role, isSystem) {
+    const r = String(role || '').trim();
+    if (ROLE_KEYS.indexOf(r) >= 0) return r;
+    if (r === 'admin' || r === 'system') return isSystem ? 'system_admin' : 'org_admin';
+    if (r === 'office' || r === 'shipping' || r === 'member' || r === 'general') return 'user';
+    return 'user';
+  },
+  of(user) {
+    const u = user || ((typeof Auth !== 'undefined' && Auth) ? Auth.user : null);
+    if (!u) return 'user';
+    if (u.emergency) return 'system_admin';
+    return this.normalize(u.role, !!(u.isSystemAdmin || u.is_system_admin));
+  },
+  label(roleOrUser) {
+    const r = typeof roleOrUser === 'string' ? this.normalize(roleOrUser) : this.of(roleOrUser);
+    return (ROLES[r] || {}).label || r;
+  },
+  isSystemAdmin(user) { return this.of(user) === 'system_admin'; },
+  isOrgAdmin(user) { return this.of(user) === 'org_admin'; },
+  /* 自組織のマスタ（会社・拠点・帳票テンプレート）を管理できる */
+  canManageMaster(user) { const r = this.of(user); return r === 'system_admin' || r === 'org_admin'; },
+  /* ユーザー管理（system_admin=全組織 / org_admin=自組織） */
+  canManageUsers(user) { return this.canManageMaster(user); },
+  /* システム設定・組織マスタ */
+  canSystem(user) { return this.isSystemAdmin(user); },
+  /* 他組織（全組織）の閲覧 */
+  canViewAllOrgs(user) { return this.isSystemAdmin(user); },
+  /* ロールの割当可能範囲（org_admin は system_admin を付与できない） */
+  assignable(user) { return this.isSystemAdmin(user) ? ROLE_KEYS.slice() : ['manager', 'user']; },
+  canAssign(user, role) { return this.assignable(user).indexOf(this.normalize(role)) >= 0; }
 };
 
 /* ==========================================================================
@@ -33,7 +78,18 @@ const Tenant = {
   isActive(id) { const o = this.org(id); return !!o && o.isActive !== false; },
   isSystemAdmin() {
     const u = (typeof Auth !== 'undefined' && Auth) ? Auth.user : null;
-    return !!(u && (u.isSystemAdmin || u.emergency));
+    return !!(u && (u.emergency || Role.isSystemAdmin(u)));
+  },
+  /* 全組織閲覧（system_admin のみ）。未スコープの全行スナップショットを返す */
+  raw(key) {
+    const all = (this._raw && Array.isArray(this._raw[key])) ? this._raw[key] : ((typeof Store !== 'undefined' && Store.db && Store.db[key]) || []);
+    return all;
+  },
+  orgStats(orgId) {
+    const keys = ['users', 'companies', 'branches', 'customers', 'suppliers', 'items', 'orders', 'shipments', 'documents'];
+    const out = {};
+    keys.forEach(k => { out[k] = this.raw(k).filter(r => Number(r.organizationId) === Number(orgId)).length; });
+    return out;
   },
   owns(row) { return !!row && Number(row.organizationId) === this.id(); },
   filter(arr) { return (arr || []).filter(r => this.owns(r)); },
@@ -58,9 +114,13 @@ const Tenant = {
       this._raw = {};
       TENANT_TABLES.forEach(k => { if (Array.isArray(db[k])) this._raw[k] = db[k].slice(); });
     }
+    const sysAll = this.isSystemAdmin();
     TENANT_TABLES.filter(k => k !== 'organizations').forEach(k => {
       if (!Array.isArray(db[k])) return;
       const base = this._raw[k] || db[k];
+      /* system_admin は「全ユーザー閲覧」のため users のみ全組織を保持する
+         （業務データは帳票・集計の混線を避けるため自組織に固定し、全組織の集計は Tenant.raw() で参照） */
+      if (sysAll && k === 'users') { db[k] = base.slice(); return; }
       db[k] = base.filter(r => this.owns(r));
     });
   },
@@ -80,35 +140,37 @@ const Tenant = {
 /* メニュー定義（権限で出し分け） */
 const MENU = [
   { group: 'ホーム', items: [
-    { id: 'dashboard', label: 'ダッシュボード', sub: '本日の状況サマリー', icon: 'grid', roles: ['admin','office','shipping'] },
-    { id: 'alerts',    label: '警告一覧',       sub: '在庫不足・納期遅延', icon: 'alert', roles: ['admin','office','shipping'], badge: 'alerts' }
+    { id: 'dashboard', label: 'ダッシュボード', sub: '本日の状況サマリー', icon: 'grid', roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'alerts',    label: '警告一覧',       sub: '在庫不足・納期遅延', icon: 'alert', roles: ['system_admin','org_admin','manager','user'], badge: 'alerts' }
   ]},
   { group: '在庫管理', items: [
-    { id: 'inventory',  label: '在庫一覧',    sub: '現在庫・発注点管理',  icon: 'box',   roles: ['admin','office'] },
-    { id: 'movements',  label: '入出庫履歴',  sub: '在庫増減の全記録',    icon: 'clock', roles: ['admin','office'] },
-    { id: 'products',   label: '商品マスタ',  sub: '販売商品の登録',      icon: 'tag',   roles: ['admin','office'] },
-    { id: 'materials',  label: '資材マスタ',  sub: '梱包・消耗資材の登録', icon: 'layers',roles: ['admin','office'] }
+    { id: 'inventory',  label: '在庫一覧',    sub: '現在庫・発注点管理',  icon: 'box',   roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'movements',  label: '入出庫履歴',  sub: '在庫増減の全記録',    icon: 'clock', roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'products',   label: '商品マスタ',  sub: '販売商品の登録',      icon: 'tag',   roles: ['system_admin','org_admin','manager'] },
+    { id: 'materials',  label: '資材マスタ',  sub: '梱包・消耗資材の登録', icon: 'layers',roles: ['system_admin','org_admin','manager'] }
   ]},
   { group: '受注管理', items: [
-    { id: 'orders',     label: '受注一覧',    sub: '受注残・納期管理',    icon: 'file',  roles: ['admin','office'] },
-    { id: 'customers',  label: '得意先マスタ', sub: '取引先の登録',       icon: 'users', roles: ['admin','office'] }
+    { id: 'orders',     label: '受注一覧',    sub: '受注残・納期管理',    icon: 'file',  roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'customers',  label: '得意先マスタ', sub: '取引先の登録',       icon: 'users', roles: ['system_admin','org_admin','manager'] }
   ]},
   { group: '発注管理', items: [
-    { id: 'purchase',   label: '発注一覧',    sub: '発注残管理',          icon: 'cart',  roles: ['admin','office'] },
-    { id: 'receipts',   label: '入荷処理',    sub: '入荷確定で在庫加算',   icon: 'inbox', roles: ['admin','office'] },
-    { id: 'suppliers',  label: '仕入先マスタ', sub: '仕入先の登録',        icon: 'factory', roles: ['admin','office'] }
+    { id: 'purchase',   label: '発注一覧',    sub: '発注残管理',          icon: 'cart',  roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'receipts',   label: '入荷処理',    sub: '入荷確定で在庫加算',   icon: 'inbox', roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'suppliers',  label: '仕入先マスタ', sub: '仕入先の登録',        icon: 'factory', roles: ['system_admin','org_admin','manager'] }
   ]},
   { group: '出荷管理', items: [
-    { id: 'shipping',   label: '出荷指示',    sub: '出荷の指示と確定',     icon: 'truck', roles: ['admin','office','shipping'] },
-    { id: 'shipHistory',label: '出荷検索・履歴', sub: '期間・得意先・営業担当・状態で検索', icon: 'history', roles: ['admin','office','shipping'] },
-    { id: 'docs',       label: '帳票発行',    sub: '納品書・出荷伝票・ピッキング', icon: 'printer', roles: ['admin','office','shipping'] }
+    { id: 'shipping',   label: '出荷指示',    sub: '出荷の指示と確定',     icon: 'truck', roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'shipHistory',label: '出荷検索・履歴', sub: '期間・得意先・営業担当・状態で検索', icon: 'history', roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'docs',       label: '帳票発行',    sub: '納品書・出荷伝票・ピッキング', icon: 'printer', roles: ['system_admin','org_admin','manager','user'] }
   ]},
   { group: 'システム', items: [
-    { id: 'users',    label: 'ユーザー管理', sub: '権限の設定',           icon: 'user', roles: ['admin'] },
-    { id: 'organizations', label: '組織マスタ', sub: 'テナントの追加・編集・停止', icon: 'layers', roles: ['admin'], sysOnly: true },
-    { id: 'companies', label: '会社・拠点マスタ', sub: 'グループ会社と拠点の登録', icon: 'factory', roles: ['admin'] },
-    { id: 'docTemplates', label: '帳票テンプレート', sub: '帳票の表示項目を定義', icon: 'printer', roles: ['admin'] },
-    { id: 'settings', label: 'システム設定', sub: 'データ管理と将来拡張',   icon: 'settings', roles: ['admin'] }
+    /* ユーザー管理: システム管理者=全組織 / 組織管理者=自組織のみ */
+    { id: 'users',    label: 'ユーザー管理', sub: '権限の設定',           icon: 'user', roles: ['system_admin','org_admin'] },
+    { id: 'companies', label: '会社・拠点マスタ', sub: 'グループ会社と拠点の登録', icon: 'factory', roles: ['system_admin','org_admin'] },
+    { id: 'docTemplates', label: '帳票テンプレート', sub: '帳票の表示項目を定義', icon: 'printer', roles: ['system_admin','org_admin'] },
+    /* 組織マスタ・システム設定は system_admin のみ（他ロールにはメニュー自体を出さない） */
+    { id: 'organizations', label: '組織マスタ', sub: 'テナントの追加・編集・停止', icon: 'layers', roles: ['system_admin'], sysOnly: true },
+    { id: 'settings', label: 'システム設定', sub: 'データ管理と将来拡張',   icon: 'settings', roles: ['system_admin'], sysOnly: true }
   ]}
 ];
 
@@ -520,10 +582,10 @@ const Auth = {
       $('orgBadge').style.display = o ? 'inline-flex' : 'none';
     }
     if ($('sbName')) $('sbName').textContent = u.name || '';
-    if ($('sbRole')) $('sbRole').textContent = (ROLES[u.role] || {}).label || u.role || '';
+    if ($('sbRole')) $('sbRole').textContent = Role.label(u);
     if ($('sbAv')) {
       $('sbAv').textContent = String(u.name || '?').charAt(0);
-      $('sbAv').style.background = (ROLES[u.role] || {}).av || '';
+      $('sbAv').style.background = (ROLES[Role.of(u)] || {}).av || '';
     }
     /* 緊急管理者ログイン中のバナー */
     const emg = $('emgBar');
@@ -537,7 +599,7 @@ const Auth = {
     App.go(u.emergency ? 'dashboard' : (valid ? pg : 'dashboard'));
     UI.toast(u.emergency
       ? '緊急管理者としてログインしました（管理者権限）'
-      : `${u.name}（${(ROLES[u.role] || {}).label || u.role}）としてログインしました`, u.emergency ? 'warn' : 'ok');
+      : `${u.name}（${Role.label(u)}）としてログインしました`, u.emergency ? 'warn' : 'ok');
   },
 
   /* セッション復元（ページ再読み込み後） */
@@ -626,12 +688,15 @@ const Auth = {
     const emg = $('emgBar'); if (emg) emg.style.display = 'none';
     const id = $('loginId'); if (id && id.focus) id.focus();
   },
+  /* 画面のアクセス可否（ロール + system_admin 限定フラグ） */
   can(id) {
-    if (!this.user || !ROLES[this.user.role]) return false;
-    const r = this.user.role;
+    const u = this.user;
+    if (!u) return false;
+    const r = Role.of(u);
+    if (ROLE_KEYS.indexOf(r) < 0) return false;
     for (const g of MENU) {
       const it = g.items.find(x => x.id === id);
-      if (it) return it.roles.includes(r) && (!it.sysOnly || Tenant.isSystemAdmin());
+      if (it) return it.roles.includes(r) && (!it.sysOnly || Role.isSystemAdmin(u));
     }
     return true;
   }

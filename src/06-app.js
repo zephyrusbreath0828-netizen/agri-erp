@@ -713,7 +713,7 @@ const Actions = {
   /* ------------------------- ユーザー管理（ID・パスワード認証） ------------------------- */
   /* ------------------------- 組織マスタ（システム管理者のみ） ------------------------- */
   organizationForm(id) {
-    if (!Tenant.isSystemAdmin()) return UI.toast('組織マスタはシステム管理者のみ操作できます', 'err');
+    if (!Role.canSystem(Auth.user)) return UI.toast('組織マスタはシステム管理者のみ操作できます', 'err');
     const o = id ? Tenant.org(id) : null;
     UI.modal(o ? '組織を編集' : '組織を登録', o ? o.organizationCode : 'テナント（組織）を追加します', `
       <div class="form-grid c2">
@@ -727,7 +727,7 @@ const Actions = {
       `<button class="btn" onclick="UI.closeModal()">キャンセル</button><button class="btn primary" onclick="Actions.saveOrganization('${id || ''}')">${ico('check', 15)} 保存</button>`);
   },
   saveOrganization(id) {
-    if (!Tenant.isSystemAdmin()) return UI.toast('組織マスタはシステム管理者のみ操作できます', 'err');
+    if (!Role.canSystem(Auth.user)) return UI.toast('組織マスタはシステム管理者のみ操作できます', 'err');
     const g = n => (document.getElementById(n) || {}).value || '';
     const code = g('o_code').trim(), name = g('o_name').trim();
     if (!code || !name) return UI.toast('組織コードと組織名は必須です', 'err');
@@ -746,7 +746,7 @@ const Actions = {
     Store.save(); UI.closeModal(); App.repaint();
   },
   toggleOrganization(id) {
-    if (!Tenant.isSystemAdmin()) return UI.toast('組織マスタはシステム管理者のみ操作できます', 'err');
+    if (!Role.canSystem(Auth.user)) return UI.toast('組織マスタはシステム管理者のみ操作できます', 'err');
     const o = Tenant.org(id); if (!o) return;
     if (Number(o.id) === Tenant.id()) return UI.toast('ログイン中の組織は停止できません', 'err');
     if (o.isActive !== false && (Store.db.organizations || []).filter(x => x.isActive !== false).length <= 1)
@@ -757,7 +757,9 @@ const Actions = {
   },
 
   userForm(id) {
+    if (!Role.canManageUsers(Auth.user)) return UI.toast('ユーザー管理の権限がありません', 'err');
     const u = id ? Store.user(id) : null;
+    if (u && !Role.canViewAllOrgs(Auth.user) && Number(u.organizationId) !== Tenant.id()) return UI.toast('他組織のユーザーは編集できません', 'err');
     UI.modal(u ? 'ユーザー編集' : 'ユーザー登録', u ? `ログインID ${u.loginId}` : '初期パスワード Temp1234! で登録します（初回ログイン時に変更必須）', `
       <div class="form-grid c2">
         <div class="field"><label>ユーザーID *</label><input class="inp" id="u_login" value="${esc(u ? u.loginId : '')}" placeholder="例：shipping2"></div>
@@ -767,7 +769,8 @@ const Actions = {
         <div class="field"><label>所属組織 *</label><select class="inp" id="u_org"${Tenant.isSystemAdmin() ? '' : ' disabled'}>
           ${(Tenant.all()).map(o => `<option value="${esc(o.id)}"${Number(u ? (u.organizationId || 1) : Tenant.id()) === Number(o.id) ? ' selected' : ''}>${esc(o.organizationName)}（${esc(o.organizationCode)}）</option>`).join('')}</select></div>
         <div class="field"><label>ロール *</label><select class="inp" id="u_role">
-          ${Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${u && u.role === k ? ' selected' : ''}>${r.label} — ${r.desc}</option>`).join('')}</select></div>
+          ${Role.assignable(Auth.user).map(k => `<option value="${k}"${u && Role.of(u) === k ? ' selected' : ''}>${ROLES[k].label} — ${ROLES[k].desc}</option>`).join('')}</select>
+          ${Role.canSystem(Auth.user) ? '' : '<div class="tiny muted">システム管理者の付与はシステム管理者のみ可能です</div>'}</div>
         <div class="field"><label>有効／無効</label><select class="inp" id="u_enabled">
           <option value="1"${!u || u.enabled ? ' selected' : ''}>有効</option>
           <option value="0"${u && !u.enabled ? ' selected' : ''}>無効</option></select></div>
@@ -783,13 +786,21 @@ const Actions = {
     if (Store.db.users.some(x => String(x.loginId).toLowerCase() === loginId.toLowerCase() && x.id !== id)) return UI.toast('そのユーザーIDは既に使われています', 'err');
     const enabled = g('u_enabled') !== '0';
     /* マルチテナント: 所属組織。システム管理者以外は自組織に固定（他組織へは作成不可） */
-    const orgId = Tenant.isSystemAdmin() && g('u_org') ? Number(g('u_org')) : Tenant.id();
+    const orgId = Role.canViewAllOrgs(Auth.user) && g('u_org') ? Number(g('u_org')) : Tenant.id();
     if (!Tenant.all().some(o => Number(o.id) === orgId)) return UI.toast('所属組織が不正です', 'err');
+    /* 権限: 付与できるロールは実行者に依存（org_admin は system_admin / org_admin を付与できない） */
+    if (!Role.canAssign(Auth.user, role)) return UI.toast('このロールを付与する権限がありません', 'err');
+    if (!Role.canManageUsers(Auth.user)) return UI.toast('ユーザー管理の権限がありません', 'err');
     if (id) {
       const u = Store.user(id);
-      /* 最後の有効管理者のロール変更・無効化は不可 */
-      if (u.role === 'admin' && u.enabled && (!enabled || role !== 'admin')
-        && !Store.db.users.some(x => x.id !== id && x.role === 'admin' && x.enabled))
+      if (!u) return UI.toast('ユーザーが見つかりません', 'err');
+      /* 他組織のユーザーは編集不可（system_admin 以外） */
+      if (!Role.canViewAllOrgs(Auth.user) && Number(u.organizationId) !== Tenant.id()) return UI.toast('他組織のユーザーは編集できません', 'err');
+      /* 既存のシステム管理者を降格・無効化できるのはシステム管理者のみ */
+      if (Role.isSystemAdmin(u) && !Role.canSystem(Auth.user)) return UI.toast('このユーザーを変更する権限がありません', 'err');
+      /* 最後の（組織）管理者のロール変更・無効化は不可 */
+      const admins = Store.db.users.filter(x => x.id !== id && x.enabled && Role.canManageUsers(x) && Number(x.organizationId) === Number(u.organizationId));
+      if (Role.canManageUsers(u) && u.enabled && (!enabled || !Role.canManageUsers({ role })) && !admins.length)
         return UI.toast('有効な管理者がいなくなるため変更できません', 'err');
       Object.assign(u, { loginId, name, email: g('u_mail'), tel: g('u_tel'), role, enabled, organizationId: orgId, updatedAt: new Date().toISOString() });
       UI.toast(`ユーザー ${loginId} を更新しました`, 'ok');
@@ -853,7 +864,7 @@ const Actions = {
   },
   /* パスワードリセット（管理者専用）：ランダムな仮パスワードを発行し、次回ログイン時に変更を必須化する */
   resetUserPassword(id) {
-    if (!Auth.user || Auth.user.role !== 'admin') return UI.toast('この操作は管理者のみ利用できます', 'err');
+    if (!Role.canSystem(Auth.user)) return UI.toast('この操作はシステム管理者のみ利用できます', 'err');
     const u = Store.user(id);
     if (!u) return;
     UI.modal('パスワードリセット', '', `<div class="note amber" style="white-space:pre-line">ユーザー：${esc(u.name)}（${esc(u.loginId)}）
@@ -900,7 +911,10 @@ const Actions = {
     const u = Store.user(id);
     if (!u) return;
     if (Auth.user && u.id === Auth.user.id) return UI.toast('自分のアカウントは無効化できません', 'err');
-    if (u.enabled && u.role === 'admin' && !Store.db.users.some(x => x.id !== id && x.role === 'admin' && x.enabled))
+    if (!Role.canManageUsers(Auth.user)) return UI.toast('ユーザー管理の権限がありません', 'err');
+    if (!Role.canViewAllOrgs(Auth.user) && Number(u.organizationId) !== Tenant.id()) return UI.toast('他組織のユーザーは操作できません', 'err');
+    if (Role.isSystemAdmin(u) && !Role.canSystem(Auth.user)) return UI.toast('このユーザーを操作する権限がありません', 'err');
+    if (u.enabled && Role.canManageUsers(u) && !Store.db.users.some(x => x.id !== id && x.enabled && Role.canManageUsers(x) && Number(x.organizationId) === Number(u.organizationId)))
       return UI.toast('有効な管理者がいなくなるため無効化できません', 'err');
     UI.confirm(u.enabled ? 'ユーザーの無効化' : 'ユーザーの有効化',
       `${u.name}（${u.loginId}）を${u.enabled ? '無効化します。無効化されたユーザーはログインできなくなります' : '有効化します'}。`, () => {
@@ -916,7 +930,10 @@ const Actions = {
     const u = Store.user(id);
     if (!u) return;
     if (Auth.user && u.id === Auth.user.id) return UI.toast('自分のアカウントは削除できません', 'err');
-    if (u.role === 'admin' && u.enabled && !Store.db.users.some(x => x.id !== id && x.role === 'admin' && x.enabled))
+    if (!Role.canManageUsers(Auth.user)) return UI.toast('ユーザー管理の権限がありません', 'err');
+    if (!Role.canViewAllOrgs(Auth.user) && Number(u.organizationId) !== Tenant.id()) return UI.toast('他組織のユーザーは操作できません', 'err');
+    if (Role.isSystemAdmin(u) && !Role.canSystem(Auth.user)) return UI.toast('このユーザーを操作する権限がありません', 'err');
+    if (u.enabled && Role.canManageUsers(u) && !Store.db.users.some(x => x.id !== id && x.enabled && Role.canManageUsers(x) && Number(x.organizationId) === Number(u.organizationId)))
       return UI.toast('有効な管理者がいなくなるため削除できません', 'err');
     UI.confirm('ユーザー削除', `${u.name}（${u.loginId}）を削除します。よろしいですか？`, () => {
       Store.db.users = Store.db.users.filter(x => x.id !== id);

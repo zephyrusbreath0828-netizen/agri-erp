@@ -427,6 +427,7 @@ const chkBox = (id, label, on) => `<label class="chk"><input type="checkbox" id=
 const IssuerAdmin = {
   /* ------------------------- 会社 ------------------------- */
   companyForm(id) {
+    if (typeof Role !== 'undefined' && !Role.canManageMaster(Auth.user)) return UI.toast('マスタ管理の権限がありません', 'err');
     const c = id ? Issuer.company(id) : null;
     const v = Issuer.companyVisible(c);
     UI.modal(c ? '会社を編集' : '会社を登録', c ? c.name : 'グループ会社・自社を登録します（複数登録可）', `
@@ -476,6 +477,7 @@ const IssuerAdmin = {
 
   /* ------------------------- 拠点 ------------------------- */
   branchForm(id, companyId) {
+    if (typeof Role !== 'undefined' && !Role.canManageMaster(Auth.user)) return UI.toast('マスタ管理の権限がありません', 'err');
     const b = id ? Issuer.branch(id) : null;
     const coId = (b && b.companyId) || companyId || (Issuer.companies(true)[0] || {}).id || '';
     if (!coId) return UI.toast('先に会社マスタを登録してください', 'err');
@@ -535,6 +537,7 @@ const IssuerAdmin = {
 
   /* ------------------------- 帳票テンプレート ------------------------- */
   templateForm(id) {
+    if (typeof Role !== 'undefined' && !Role.canManageMaster(Auth.user)) return UI.toast('マスタ管理の権限がありません', 'err');
     if (typeof TplEditor !== 'undefined') return TplEditor.open(id);
     const t = id ? Issuer.template(id) : null;
     UI.modal(t ? 'テンプレートを編集' : 'テンプレートを登録', t ? t.name : '帳票種別ごとの表示項目を定義します', `

@@ -73,17 +73,18 @@ d.getElementById('o_name').value = 'Ｃファーム（改）';
 T.Actions.saveOrganization('4');
 ok('組織の編集', Store.db.organizations.find(o => Number(o.id) === 4).organizationName === 'Ｃファーム（改）');
 
-/* ---- 7. 非システム管理者の制限 ---- */
-Auth.user = office; Tenant.enter(office);
-ok('一般管理者は組織マスタを開けない', Auth.can('organizations') === false);
+/* ---- 7. 非システム管理者（組織管理者）の制限 ---- */
+Auth.user = afarm; Tenant.enter(afarm);
+ok('組織管理者は組織マスタを開けない', Auth.can('organizations') === false);
 ok('画面も権限エラー表示', T.Views.organizations().indexOf('権限がありません') >= 0);
-ok('一般管理者の新規ユーザーは自組織固定', (() => {
+ok('組織管理者の新規ユーザーは自組織固定', (() => {
   T.Actions.userForm('');
   d.getElementById('u_login').value = 'newbie';
   d.getElementById('u_name').value = '新人 太郎';
+  d.getElementById('u_role').value = 'user';
   T.Actions.saveUser('');
   const nu = Store.db.users.find(u => u.loginId === 'newbie');
-  return !!nu && Number(nu.organizationId) === 1;
+  return !!nu && Number(nu.organizationId) === 2;
 })());
 
 /* ---- 8. 組織を切り替えると別テナントのデータだけになる ---- */

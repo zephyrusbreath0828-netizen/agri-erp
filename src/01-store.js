@@ -73,14 +73,14 @@ const SEED_ORGANIZATIONS = [
 ];
 
 const SEED_USERS = [
-  ['usr001', 'admin',    '山田 太郎', 'admin@agri-erp.local',    '090-1111-2222', 'admin',    TEMP_PASSWORD_HASH, 1, true],
-  ['usr002', 'office',   '佐藤 花子', 'office@agri-erp.local',   '090-3333-4444', 'office',   TEMP_HASH_OFFICE, 1, false],
-  ['usr003', 'shipping', '鈴木 一郎', 'shipping@agri-erp.local', '090-5555-6666', 'shipping', TEMP_HASH_SHIPPING, 1, false],
+  ['usr001', 'admin',    '山田 太郎', 'admin@agri-erp.local',    '090-1111-2222', 'system_admin', TEMP_PASSWORD_HASH, 1, true],
+  ['usr002', 'office',   '佐藤 花子', 'office@agri-erp.local',   '090-3333-4444', 'manager', TEMP_HASH_OFFICE, 1, false],
+  ['usr003', 'shipping', '鈴木 一郎', 'shipping@agri-erp.local', '090-5555-6666', 'user', TEMP_HASH_SHIPPING, 1, false],
   /* 営業担当（得意先担当）: 権限は事務担当。検索条件の「営業担当者」に使用 */
-  ['usr004', 'sales1',   '田中 健二', 'sales1@agri-erp.local',   '090-7777-8888', 'office',   TEMP_HASH_OFFICE, 1, false],
+  ['usr004', 'sales1',   '田中 健二', 'sales1@agri-erp.local',   '090-7777-8888', 'user', TEMP_HASH_OFFICE, 1, false],
   ['usr005', 'sales2',   '中村 美咲', 'sales2@agri-erp.local',   '090-9999-0000', 'office',   TEMP_HASH_OFFICE, 1, false],
   /* テナント分離サンプル: A-FARM 組織の事務担当（他組織のデータは一切見えない） */
-  ['usr010', 'afarm',    '青木 大地', 'afarm@agri-erp.local',    '090-2222-3333', 'office',   TEMP_HASH_OFFICE, 2, false]
+  ['usr010', 'afarm',    '青木 大地', 'afarm@agri-erp.local',    '090-2222-3333', 'org_admin', TEMP_HASH_OFFICE, 2, false]
 ];
 
 /* ------------------------------ 会社・拠点・帳票テンプレート（v3 で新設） ------------------------------
@@ -415,6 +415,22 @@ const Store = {
   /* 旧バージョン（単一会社設定 settings.company）→ 会社マスタ（companies）への自動移行。
      会社マスタが空のときだけ実行し、既存伝票の表示内容には影響しない。
      帳票テンプレートが未登録のときは標準テンプレートを投入する。 */
+  /* 権限ロール移行: 旧ロール（admin/office/shipping）を新ロールへ正規化 */
+  migrateRoles() {
+    if (!this.db || !Array.isArray(this.db.users)) return;
+    this.db.users.forEach(u => {
+      u.role = (typeof Role !== 'undefined')
+        ? Role.normalize(u.role, !!(u.isSystemAdmin || u.is_system_admin))
+        : (u.role || 'user');
+      if (u.role === 'system_admin') u.isSystemAdmin = true;
+    });
+    /* システム管理者が不在にならないよう、管理者フラグ持ちを1名昇格させる */
+    if (!this.db.users.some(u => u.role === 'system_admin')) {
+      const cand = this.db.users.find(u => u.isSystemAdmin && u.enabled !== false) || this.db.users.find(u => u.enabled !== false);
+      if (cand) { cand.role = 'system_admin'; cand.isSystemAdmin = true; }
+    }
+  },
+
   /* マルチテナント移行: organization_id 未設定の既存行を既定組織（SETOLAS=1）へ割当 */
   migrateTenant() {
     if (!this.db) return;
@@ -428,6 +444,7 @@ const Store = {
     TENANT_TABLES.filter(k => k !== 'organizations').forEach(k => {
       (this.db[k] || []).forEach(r => { if (r.organizationId == null) r.organizationId = DEFAULT_ORG_ID; });
     });
+    this.migrateRoles();
   },
 
   migrateIssuerMasters() {

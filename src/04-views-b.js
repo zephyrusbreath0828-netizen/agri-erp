@@ -431,7 +431,7 @@ Views.shipHistory = () => {
           <div class="field"><label>営業担当者</label>
             <select class="inp" onchange="shipSet('salesRepId', this.value)">
               <option value="">すべての担当者</option>
-              ${reps.map(u => `<option value="${esc(u.id)}"${repSel === u.id ? ' selected' : ''}>${esc(u.name)}${u.role === 'admin' ? '（管理者）' : ''}</option>`).join('')}
+              ${reps.map(u => `<option value="${esc(u.id)}"${repSel === u.id ? ' selected' : ''}>${esc(u.name)}${Role.label(u) ? '（' + Role.label(u) + '）' : ''}</option>`).join('')}
             </select>
           </div>
           <div class="field"><label>出荷状態</label>
@@ -503,46 +503,53 @@ Views.shipHistory = () => {
 /* ============================== 帳票発行 ============================== */
 /* ============================== ユーザー管理 ============================== */
 Views.users = () => {
-  const list = Store.db.users;
-  const cnt = r => list.filter(u => u.role === r).length;
-  const enabledCnt = r => list.filter(u => u.role === r && u.enabled).length;
+  /* システム管理者=全ユーザー閲覧 / 組織管理者=自組織のユーザーのみ */
+  const sys = Role.canViewAllOrgs(Auth.user);
+  const list = sys ? Tenant.raw('users').slice().sort((a, b) => Number(a.organizationId) - Number(b.organizationId)) : Store.db.users;
+  const roleOf = u => Role.of(u);
+  const cnt = r => list.filter(u => roleOf(u) === r).length;
+  const enabledCnt = r => list.filter(u => roleOf(u) === r && u.enabled).length;
+  const canEdit = u => sys || Number(u.organizationId) === Tenant.id();
   const isLocked = u => {
     const s = (Store.db.loginSecurity || {})[String(u.loginId).toLowerCase()];
     return !!(s && s.lockedUntil && new Date(s.lockedUntil) > new Date());
   };
   return `<div class="vstack" style="gap:16px">
-    <div class="grid g3">
+    <div class="grid g4">
       ${Object.entries(ROLES).map(([k, r]) => kpiCard({
-        label: r.label, icon: r.icon, bg: `var(--${r.color === 'green' ? 'green-100' : r.color === 'sky' ? 'sky-100' : 'amber-100'})`,
-        fg: `var(--${r.color === 'green' ? 'green-700' : r.color === 'sky' ? 'sky-600' : 'amber-600'})`,
+        label: r.label, icon: r.icon, bg: `var(--${r.color === 'violet' ? 'violet-50' : r.color === 'green' ? 'green-100' : r.color === 'sky' ? 'sky-100' : 'amber-100'})`,
+        fg: `var(--${r.color === 'violet' ? 'violet-600' : r.color === 'green' ? 'green-700' : r.color === 'sky' ? 'sky-600' : 'amber-600'})`,
         value: cnt(k), unit: '名', foot: `有効 ${enabledCnt(k)} 名／${r.desc}`
       })).join('')}
     </div>
+    <div class="note ${sys ? 'green' : ''}">${ico('shield', 15)} ${sys
+      ? 'システム管理者として<b>全組織のユーザー</b>を表示しています（組織列で所属を確認できます）。'
+      : `<b>${esc(Tenant.label())}</b> のユーザーのみ表示・管理できます。他組織のユーザーは参照できません。`}</div>
     <div class="card">
       <div class="card-h"><h2>${ico('user', 16)} ユーザー管理</h2><span class="sub">ユーザーID・パスワード認証のアカウント</span>
         <div class="sp"><button class="btn sm primary" onclick="Actions.userForm()">${ico('plus', 14)} ユーザー登録</button></div></div>
       <div class="card-b tight"><div class="table-wrap"><table class="tb">
-        <thead><tr><th>ユーザーID</th><th>組織</th><th>氏名</th><th>メールアドレス</th><th>電話番号</th><th>ロール</th><th>利用可能機能</th><th>最終ログイン日時</th><th>パスワード変更要求</th><th>状態</th><th></th></tr></thead>
+        <thead><tr><th>ユーザーID</th>${sys ? '<th>組織</th>' : ''}<th>氏名</th><th>メールアドレス</th><th>電話番号</th><th>ロール</th><th>利用可能機能</th><th>最終ログイン日時</th><th>パスワード変更要求</th><th>状態</th><th></th></tr></thead>
         <tbody>${list.map(u => {
-          const funcs = MENU.flatMap(g => g.items).filter(i => i.roles.includes(u.role)).length;
+          const funcs = MENU.flatMap(g => g.items).filter(i => i.roles.includes(roleOf(u)) && (!i.sysOnly || sys)).length;
           return `<tr>
             <td class="mono">${esc(u.loginId)}</td>
-            <td class="sm">${esc(Tenant.name(u.organizationId))}</td>
-            <td><div class="hstack" style="gap:9px"><span class="av" style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;background:${ROLES[u.role].av}">${esc(u.name.charAt(0))}</span><span class="strong">${esc(u.name)}</span></div></td>
+            ${sys ? `<td class="sm">${esc(Tenant.name(u.organizationId))}</td>` : ''}
+            <td><div class="hstack" style="gap:9px"><span class="av" style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;background:${(ROLES[roleOf(u)] || {}).av}">${esc(u.name.charAt(0))}</span><span class="strong">${esc(u.name)}</span></div></td>
             <td class="mono">${esc(u.email)}</td>
             <td class="sm">${esc(u.tel || '—')}</td>
-            <td><span class="badge ${ROLES[u.role].color}">${esc((ROLES[u.role] || {}).label || u.role)}</span></td>
+            <td><span class="badge ${(ROLES[roleOf(u)] || {}).color || 'gray'}">${esc(Role.label(u))}</span></td>
             <td class="sm muted">${funcs} 機能</td>
             <td class="sm nowrap mono">${u.lastLoginAt ? dtJP(u.lastLoginAt) : '—'}</td>
             <td class="nowrap">${u.forcePasswordChange ? '<span class="badge amber">要求中</span>' : '<span class="muted">—</span>'}</td>
             <td class="nowrap">${u.enabled ? '<span class="badge green">有効</span>' : '<span class="badge gray">無効</span>'}${isLocked(u) ? ' <span class="badge rose">ロック中</span>' : ''}${u.forcePasswordChange ? ' <span class="badge amber">初回パスワード</span>' : ''}</td>
-            <td class="right"><div class="tb-act">
+            <td class="right"><div class="tb-act">${canEdit(u) ? `
               <button class="btn xs" onclick="Actions.userForm('${u.id}')">編集</button>
               <button class="btn xs" onclick="Actions.userPasswordForm('${u.id}')">パスワード</button>
               <button class="btn xs" onclick="Actions.reissueUserPassword('${u.id}')">初期化</button>
               <button class="btn xs primary" onclick="Actions.resetUserPassword('${u.id}')">パスワードリセット</button>
               <button class="btn xs" onclick="Actions.toggleUserEnabled('${u.id}')">${u.enabled ? '無効化' : '有効化'}</button>
-              <button class="btn xs danger" onclick="Actions.deleteUser('${u.id}')">削除</button></div></td></tr>`;
+              <button class="btn xs danger" onclick="Actions.deleteUser('${u.id}')">削除</button>` : '<span class="tiny muted">他組織</span>'}</div></td></tr>`;
         }).join('')}</tbody>
       </table></div></div>
     </div>
@@ -552,7 +559,7 @@ Views.users = () => {
         <thead><tr><th>機能</th>${Object.values(ROLES).map(r => `<th class="center">${r.label}</th>`).join('')}</tr></thead>
         <tbody>${MENU.flatMap(g => g.items).map(i => `<tr>
           <td class="strong">${esc(i.label)}<div class="tiny muted">${esc(i.sub)}</div></td>
-          ${Object.keys(ROLES).map(r => `<td class="center">${i.roles.includes(r) ? `<span style="color:var(--green-600)">${ico('check', 17, 3)}</span>` : '<span class="muted">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody>
+          ${Object.keys(ROLES).map(r => `<td class="center">${(i.roles.includes(r) && (!i.sysOnly || r === 'system_admin')) ? `<span style="color:var(--green-600)">${ico('check', 17, 3)}</span>` : '<span class="muted">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody>
       </table></div></div>
     </div>
     <div class="card">
@@ -582,16 +589,20 @@ Views.organizations = () => {
   if (!Tenant.isSystemAdmin()) return `<div class="card"><div class="card-b">${emptyBox('権限がありません', '組織マスタはシステム管理者のみ利用できます')}</div></div>`;
   const list = Tenant.all().slice().sort((a, b) => Number(a.id) - Number(b.id));
   const cur = Tenant.id();
-  const countOf = (tbl, id) => ((Store.db[tbl] || []).filter(r => Number(r.organizationId) === Number(id))).length;
+  /* system_admin は全組織の件数を参照できる（Tenant.raw はスコープ前の全行） */
+  const countOf = (tbl, id) => Tenant.raw(tbl).filter(r => Number(r.organizationId) === Number(id)).length;
+  const stat = id => Tenant.orgStats(id);
   const rows = list.map(o => {
-    const users = countOf('users', o.id);
-    const companies = countOf('companies', o.id);
+    const s = stat(o.id);
     return `<tr>
       <td class="mono">${esc(o.id)}</td>
       <td class="mono">${esc(o.organizationCode)}</td>
       <td class="strong">${esc(o.organizationName)}${Number(o.id) === cur ? ' <span class="badge green">ログイン中</span>' : ''}</td>
-      <td class="num">${companies}</td>
-      <td class="num">${users}</td>
+      <td class="num">${s.companies}</td>
+      <td class="num">${s.users}</td>
+      <td class="num">${s.customers}</td>
+      <td class="num">${s.orders}</td>
+      <td class="num">${s.shipments}</td>
       <td>${o.isActive === false ? '<span class="badge gray">停止</span>' : '<span class="badge green">有効</span>'}</td>
       <td class="tiny muted nowrap">${o.createdAt ? dtJP(o.createdAt) : '—'}</td>
       <td class="right"><div class="tb-act">
@@ -605,12 +616,12 @@ Views.organizations = () => {
       ${kpiCard({ label: '現在の組織', icon: 'shield', bg: 'var(--green-100)', fg: 'var(--green-700)', value: Tenant.code(), unit: '', foot: Tenant.name() })}
       ${kpiCard({ label: '所属ユーザー', icon: 'user', bg: 'var(--sky-100)', fg: 'var(--sky-600)', value: countOf('users', cur), unit: '名', foot: 'この組織のアカウント数' })}
     </div>
-    <div class="note green">${ico('layers', 15)} 組織マスタは <b>システム管理者のみ</b> が操作できます。組織を「停止」してもデータは削除されません（所属ユーザーのログインと参照ができなくなります）。</div>
+    <div class="note green">${ico('layers', 15)} 組織マスタは <b>システム管理者のみ</b> が操作できます。各組織の件数は全組織の実データを集計したものです（業務画面・帳票は自組織のみ）。組織を「停止」してもデータは削除されません（所属ユーザーのログインと参照ができなくなります）。</div>
     <div class="card">
       <div class="card-h"><h2>${ico('layers', 16)} 組織マスタ</h2><span class="sub">組織 → 会社 → 拠点 の階層でデータを隔離します</span>
         <div class="sp"><button class="btn sm primary" onclick="Actions.organizationForm('')">${ico('plus', 14)} 組織を登録</button></div></div>
       <div class="card-b tight"><div class="table-wrap"><table class="tb">
-        <thead><tr><th>ID</th><th>組織コード</th><th>組織名</th><th class="num">会社</th><th class="num">ユーザー</th><th>状態</th><th>登録日</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>組織コード</th><th>組織名</th><th class="num">会社</th><th class="num">ユーザー</th><th class="num">得意先</th><th class="num">受注</th><th class="num">出荷</th><th>状態</th><th>登録日</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div></div>
     </div>

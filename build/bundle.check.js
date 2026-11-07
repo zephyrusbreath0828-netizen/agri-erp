@@ -556,14 +556,14 @@ const SEED_ORGANIZATIONS = [
 ];
 
 const SEED_USERS = [
-  ['usr001', 'admin',    '山田 太郎', 'admin@agri-erp.local',    '090-1111-2222', 'admin',    TEMP_PASSWORD_HASH, 1, true],
-  ['usr002', 'office',   '佐藤 花子', 'office@agri-erp.local',   '090-3333-4444', 'office',   TEMP_HASH_OFFICE, 1, false],
-  ['usr003', 'shipping', '鈴木 一郎', 'shipping@agri-erp.local', '090-5555-6666', 'shipping', TEMP_HASH_SHIPPING, 1, false],
+  ['usr001', 'admin',    '山田 太郎', 'admin@agri-erp.local',    '090-1111-2222', 'system_admin', TEMP_PASSWORD_HASH, 1, true],
+  ['usr002', 'office',   '佐藤 花子', 'office@agri-erp.local',   '090-3333-4444', 'manager', TEMP_HASH_OFFICE, 1, false],
+  ['usr003', 'shipping', '鈴木 一郎', 'shipping@agri-erp.local', '090-5555-6666', 'user', TEMP_HASH_SHIPPING, 1, false],
   /* 営業担当（得意先担当）: 権限は事務担当。検索条件の「営業担当者」に使用 */
-  ['usr004', 'sales1',   '田中 健二', 'sales1@agri-erp.local',   '090-7777-8888', 'office',   TEMP_HASH_OFFICE, 1, false],
+  ['usr004', 'sales1',   '田中 健二', 'sales1@agri-erp.local',   '090-7777-8888', 'user', TEMP_HASH_OFFICE, 1, false],
   ['usr005', 'sales2',   '中村 美咲', 'sales2@agri-erp.local',   '090-9999-0000', 'office',   TEMP_HASH_OFFICE, 1, false],
   /* テナント分離サンプル: A-FARM 組織の事務担当（他組織のデータは一切見えない） */
-  ['usr010', 'afarm',    '青木 大地', 'afarm@agri-erp.local',    '090-2222-3333', 'office',   TEMP_HASH_OFFICE, 2, false]
+  ['usr010', 'afarm',    '青木 大地', 'afarm@agri-erp.local',    '090-2222-3333', 'org_admin', TEMP_HASH_OFFICE, 2, false]
 ];
 
 /* ------------------------------ 会社・拠点・帳票テンプレート（v3 で新設） ------------------------------
@@ -898,6 +898,22 @@ const Store = {
   /* 旧バージョン（単一会社設定 settings.company）→ 会社マスタ（companies）への自動移行。
      会社マスタが空のときだけ実行し、既存伝票の表示内容には影響しない。
      帳票テンプレートが未登録のときは標準テンプレートを投入する。 */
+  /* 権限ロール移行: 旧ロール（admin/office/shipping）を新ロールへ正規化 */
+  migrateRoles() {
+    if (!this.db || !Array.isArray(this.db.users)) return;
+    this.db.users.forEach(u => {
+      u.role = (typeof Role !== 'undefined')
+        ? Role.normalize(u.role, !!(u.isSystemAdmin || u.is_system_admin))
+        : (u.role || 'user');
+      if (u.role === 'system_admin') u.isSystemAdmin = true;
+    });
+    /* システム管理者が不在にならないよう、管理者フラグ持ちを1名昇格させる */
+    if (!this.db.users.some(u => u.role === 'system_admin')) {
+      const cand = this.db.users.find(u => u.isSystemAdmin && u.enabled !== false) || this.db.users.find(u => u.enabled !== false);
+      if (cand) { cand.role = 'system_admin'; cand.isSystemAdmin = true; }
+    }
+  },
+
   /* マルチテナント移行: organization_id 未設定の既存行を既定組織（SETOLAS=1）へ割当 */
   migrateTenant() {
     if (!this.db) return;
@@ -911,6 +927,7 @@ const Store = {
     TENANT_TABLES.filter(k => k !== 'organizations').forEach(k => {
       (this.db[k] || []).forEach(r => { if (r.organizationId == null) r.organizationId = DEFAULT_ORG_ID; });
     });
+    this.migrateRoles();
   },
 
   migrateIssuerMasters() {
@@ -1113,10 +1130,55 @@ const Store = {
 /* ==========================================================================
    アグリERP — 認証・権限・UI 基盤・ルーティング
    ========================================================================== */
+/* ==========================================================================
+   権限ロール（ver 3.5）
+   system_admin : システム管理者 — 組織マスタ／全組織閲覧／全ユーザー閲覧／システム設定
+   org_admin    : 組織管理者   — 自組織の会社・拠点・帳票テンプレート・ユーザー管理
+   manager      : 管理担当     — 業務全般＋マスタ参照（管理機能は不可）
+   user         : 一般         — 業務の実行（受注・発注・在庫・出荷・帳票）
+   ※ 旧ロール（admin / office / shipping）は Role.normalize() と SQL で自動移行する
+   ========================================================================== */
 const ROLES = {
-  admin:    { label: '管理者',   desc: 'すべての機能を利用できます', color: 'green',  icon: 'shield', av: 'linear-gradient(140deg,#34d399,#0ea5e9)' },
-  office:   { label: '事務担当', desc: '受注・発注・在庫・帳票を担当', color: 'sky',    icon: 'clipboard', av: 'linear-gradient(140deg,#38bdf8,#8b5cf6)' },
-  shipping: { label: '出荷担当', desc: '出荷指示・確定・帳票印刷を担当', color: 'amber',  icon: 'truck', av: 'linear-gradient(140deg,#fbbf24,#f97316)' }
+  system_admin: { label: 'システム管理者', desc: '全組織の閲覧・組織マスタ・システム設定', color: 'violet', icon: 'shield', av: 'linear-gradient(140deg,#8b5cf6,#0ea5e9)' },
+  org_admin:    { label: '組織管理者',     desc: '自組織のマスタ・ユーザー管理',           color: 'green',  icon: 'shield', av: 'linear-gradient(140deg,#34d399,#0ea5e9)' },
+  manager:      { label: '管理担当',       desc: '業務全般の管理・マスタ参照',             color: 'sky',    icon: 'clipboard', av: 'linear-gradient(140deg,#38bdf8,#8b5cf6)' },
+  user:         { label: '一般',           desc: '日常業務（受注・在庫・出荷・帳票）',     color: 'amber',  icon: 'user', av: 'linear-gradient(140deg,#fbbf24,#f97316)' }
+};
+const ROLE_KEYS = ['system_admin', 'org_admin', 'manager', 'user'];
+
+/* ロール判定・正規化（旧ロールの自動移行を含む単一の入口） */
+const Role = {
+  /* 旧 admin は「システム管理者フラグがあれば system_admin、なければ org_admin」 */
+  normalize(role, isSystem) {
+    const r = String(role || '').trim();
+    if (ROLE_KEYS.indexOf(r) >= 0) return r;
+    if (r === 'admin' || r === 'system') return isSystem ? 'system_admin' : 'org_admin';
+    if (r === 'office' || r === 'shipping' || r === 'member' || r === 'general') return 'user';
+    return 'user';
+  },
+  of(user) {
+    const u = user || ((typeof Auth !== 'undefined' && Auth) ? Auth.user : null);
+    if (!u) return 'user';
+    if (u.emergency) return 'system_admin';
+    return this.normalize(u.role, !!(u.isSystemAdmin || u.is_system_admin));
+  },
+  label(roleOrUser) {
+    const r = typeof roleOrUser === 'string' ? this.normalize(roleOrUser) : this.of(roleOrUser);
+    return (ROLES[r] || {}).label || r;
+  },
+  isSystemAdmin(user) { return this.of(user) === 'system_admin'; },
+  isOrgAdmin(user) { return this.of(user) === 'org_admin'; },
+  /* 自組織のマスタ（会社・拠点・帳票テンプレート）を管理できる */
+  canManageMaster(user) { const r = this.of(user); return r === 'system_admin' || r === 'org_admin'; },
+  /* ユーザー管理（system_admin=全組織 / org_admin=自組織） */
+  canManageUsers(user) { return this.canManageMaster(user); },
+  /* システム設定・組織マスタ */
+  canSystem(user) { return this.isSystemAdmin(user); },
+  /* 他組織（全組織）の閲覧 */
+  canViewAllOrgs(user) { return this.isSystemAdmin(user); },
+  /* ロールの割当可能範囲（org_admin は system_admin を付与できない） */
+  assignable(user) { return this.isSystemAdmin(user) ? ROLE_KEYS.slice() : ['manager', 'user']; },
+  canAssign(user, role) { return this.assignable(user).indexOf(this.normalize(role)) >= 0; }
 };
 
 /* ==========================================================================
@@ -1145,7 +1207,18 @@ const Tenant = {
   isActive(id) { const o = this.org(id); return !!o && o.isActive !== false; },
   isSystemAdmin() {
     const u = (typeof Auth !== 'undefined' && Auth) ? Auth.user : null;
-    return !!(u && (u.isSystemAdmin || u.emergency));
+    return !!(u && (u.emergency || Role.isSystemAdmin(u)));
+  },
+  /* 全組織閲覧（system_admin のみ）。未スコープの全行スナップショットを返す */
+  raw(key) {
+    const all = (this._raw && Array.isArray(this._raw[key])) ? this._raw[key] : ((typeof Store !== 'undefined' && Store.db && Store.db[key]) || []);
+    return all;
+  },
+  orgStats(orgId) {
+    const keys = ['users', 'companies', 'branches', 'customers', 'suppliers', 'items', 'orders', 'shipments', 'documents'];
+    const out = {};
+    keys.forEach(k => { out[k] = this.raw(k).filter(r => Number(r.organizationId) === Number(orgId)).length; });
+    return out;
   },
   owns(row) { return !!row && Number(row.organizationId) === this.id(); },
   filter(arr) { return (arr || []).filter(r => this.owns(r)); },
@@ -1170,9 +1243,13 @@ const Tenant = {
       this._raw = {};
       TENANT_TABLES.forEach(k => { if (Array.isArray(db[k])) this._raw[k] = db[k].slice(); });
     }
+    const sysAll = this.isSystemAdmin();
     TENANT_TABLES.filter(k => k !== 'organizations').forEach(k => {
       if (!Array.isArray(db[k])) return;
       const base = this._raw[k] || db[k];
+      /* system_admin は「全ユーザー閲覧」のため users のみ全組織を保持する
+         （業務データは帳票・集計の混線を避けるため自組織に固定し、全組織の集計は Tenant.raw() で参照） */
+      if (sysAll && k === 'users') { db[k] = base.slice(); return; }
       db[k] = base.filter(r => this.owns(r));
     });
   },
@@ -1192,35 +1269,37 @@ const Tenant = {
 /* メニュー定義（権限で出し分け） */
 const MENU = [
   { group: 'ホーム', items: [
-    { id: 'dashboard', label: 'ダッシュボード', sub: '本日の状況サマリー', icon: 'grid', roles: ['admin','office','shipping'] },
-    { id: 'alerts',    label: '警告一覧',       sub: '在庫不足・納期遅延', icon: 'alert', roles: ['admin','office','shipping'], badge: 'alerts' }
+    { id: 'dashboard', label: 'ダッシュボード', sub: '本日の状況サマリー', icon: 'grid', roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'alerts',    label: '警告一覧',       sub: '在庫不足・納期遅延', icon: 'alert', roles: ['system_admin','org_admin','manager','user'], badge: 'alerts' }
   ]},
   { group: '在庫管理', items: [
-    { id: 'inventory',  label: '在庫一覧',    sub: '現在庫・発注点管理',  icon: 'box',   roles: ['admin','office'] },
-    { id: 'movements',  label: '入出庫履歴',  sub: '在庫増減の全記録',    icon: 'clock', roles: ['admin','office'] },
-    { id: 'products',   label: '商品マスタ',  sub: '販売商品の登録',      icon: 'tag',   roles: ['admin','office'] },
-    { id: 'materials',  label: '資材マスタ',  sub: '梱包・消耗資材の登録', icon: 'layers',roles: ['admin','office'] }
+    { id: 'inventory',  label: '在庫一覧',    sub: '現在庫・発注点管理',  icon: 'box',   roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'movements',  label: '入出庫履歴',  sub: '在庫増減の全記録',    icon: 'clock', roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'products',   label: '商品マスタ',  sub: '販売商品の登録',      icon: 'tag',   roles: ['system_admin','org_admin','manager'] },
+    { id: 'materials',  label: '資材マスタ',  sub: '梱包・消耗資材の登録', icon: 'layers',roles: ['system_admin','org_admin','manager'] }
   ]},
   { group: '受注管理', items: [
-    { id: 'orders',     label: '受注一覧',    sub: '受注残・納期管理',    icon: 'file',  roles: ['admin','office'] },
-    { id: 'customers',  label: '得意先マスタ', sub: '取引先の登録',       icon: 'users', roles: ['admin','office'] }
+    { id: 'orders',     label: '受注一覧',    sub: '受注残・納期管理',    icon: 'file',  roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'customers',  label: '得意先マスタ', sub: '取引先の登録',       icon: 'users', roles: ['system_admin','org_admin','manager'] }
   ]},
   { group: '発注管理', items: [
-    { id: 'purchase',   label: '発注一覧',    sub: '発注残管理',          icon: 'cart',  roles: ['admin','office'] },
-    { id: 'receipts',   label: '入荷処理',    sub: '入荷確定で在庫加算',   icon: 'inbox', roles: ['admin','office'] },
-    { id: 'suppliers',  label: '仕入先マスタ', sub: '仕入先の登録',        icon: 'factory', roles: ['admin','office'] }
+    { id: 'purchase',   label: '発注一覧',    sub: '発注残管理',          icon: 'cart',  roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'receipts',   label: '入荷処理',    sub: '入荷確定で在庫加算',   icon: 'inbox', roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'suppliers',  label: '仕入先マスタ', sub: '仕入先の登録',        icon: 'factory', roles: ['system_admin','org_admin','manager'] }
   ]},
   { group: '出荷管理', items: [
-    { id: 'shipping',   label: '出荷指示',    sub: '出荷の指示と確定',     icon: 'truck', roles: ['admin','office','shipping'] },
-    { id: 'shipHistory',label: '出荷検索・履歴', sub: '期間・得意先・営業担当・状態で検索', icon: 'history', roles: ['admin','office','shipping'] },
-    { id: 'docs',       label: '帳票発行',    sub: '納品書・出荷伝票・ピッキング', icon: 'printer', roles: ['admin','office','shipping'] }
+    { id: 'shipping',   label: '出荷指示',    sub: '出荷の指示と確定',     icon: 'truck', roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'shipHistory',label: '出荷検索・履歴', sub: '期間・得意先・営業担当・状態で検索', icon: 'history', roles: ['system_admin','org_admin','manager','user'] },
+    { id: 'docs',       label: '帳票発行',    sub: '納品書・出荷伝票・ピッキング', icon: 'printer', roles: ['system_admin','org_admin','manager','user'] }
   ]},
   { group: 'システム', items: [
-    { id: 'users',    label: 'ユーザー管理', sub: '権限の設定',           icon: 'user', roles: ['admin'] },
-    { id: 'organizations', label: '組織マスタ', sub: 'テナントの追加・編集・停止', icon: 'layers', roles: ['admin'], sysOnly: true },
-    { id: 'companies', label: '会社・拠点マスタ', sub: 'グループ会社と拠点の登録', icon: 'factory', roles: ['admin'] },
-    { id: 'docTemplates', label: '帳票テンプレート', sub: '帳票の表示項目を定義', icon: 'printer', roles: ['admin'] },
-    { id: 'settings', label: 'システム設定', sub: 'データ管理と将来拡張',   icon: 'settings', roles: ['admin'] }
+    /* ユーザー管理: システム管理者=全組織 / 組織管理者=自組織のみ */
+    { id: 'users',    label: 'ユーザー管理', sub: '権限の設定',           icon: 'user', roles: ['system_admin','org_admin'] },
+    { id: 'companies', label: '会社・拠点マスタ', sub: 'グループ会社と拠点の登録', icon: 'factory', roles: ['system_admin','org_admin'] },
+    { id: 'docTemplates', label: '帳票テンプレート', sub: '帳票の表示項目を定義', icon: 'printer', roles: ['system_admin','org_admin'] },
+    /* 組織マスタ・システム設定は system_admin のみ（他ロールにはメニュー自体を出さない） */
+    { id: 'organizations', label: '組織マスタ', sub: 'テナントの追加・編集・停止', icon: 'layers', roles: ['system_admin'], sysOnly: true },
+    { id: 'settings', label: 'システム設定', sub: 'データ管理と将来拡張',   icon: 'settings', roles: ['system_admin'], sysOnly: true }
   ]}
 ];
 
@@ -1632,10 +1711,10 @@ const Auth = {
       $('orgBadge').style.display = o ? 'inline-flex' : 'none';
     }
     if ($('sbName')) $('sbName').textContent = u.name || '';
-    if ($('sbRole')) $('sbRole').textContent = (ROLES[u.role] || {}).label || u.role || '';
+    if ($('sbRole')) $('sbRole').textContent = Role.label(u);
     if ($('sbAv')) {
       $('sbAv').textContent = String(u.name || '?').charAt(0);
-      $('sbAv').style.background = (ROLES[u.role] || {}).av || '';
+      $('sbAv').style.background = (ROLES[Role.of(u)] || {}).av || '';
     }
     /* 緊急管理者ログイン中のバナー */
     const emg = $('emgBar');
@@ -1649,7 +1728,7 @@ const Auth = {
     App.go(u.emergency ? 'dashboard' : (valid ? pg : 'dashboard'));
     UI.toast(u.emergency
       ? '緊急管理者としてログインしました（管理者権限）'
-      : `${u.name}（${(ROLES[u.role] || {}).label || u.role}）としてログインしました`, u.emergency ? 'warn' : 'ok');
+      : `${u.name}（${Role.label(u)}）としてログインしました`, u.emergency ? 'warn' : 'ok');
   },
 
   /* セッション復元（ページ再読み込み後） */
@@ -1738,12 +1817,15 @@ const Auth = {
     const emg = $('emgBar'); if (emg) emg.style.display = 'none';
     const id = $('loginId'); if (id && id.focus) id.focus();
   },
+  /* 画面のアクセス可否（ロール + system_admin 限定フラグ） */
   can(id) {
-    if (!this.user || !ROLES[this.user.role]) return false;
-    const r = this.user.role;
+    const u = this.user;
+    if (!u) return false;
+    const r = Role.of(u);
+    if (ROLE_KEYS.indexOf(r) < 0) return false;
     for (const g of MENU) {
       const it = g.items.find(x => x.id === id);
-      if (it) return it.roles.includes(r) && (!it.sysOnly || Tenant.isSystemAdmin());
+      if (it) return it.roles.includes(r) && (!it.sysOnly || Role.isSystemAdmin(u));
     }
     return true;
   }
@@ -2525,7 +2607,7 @@ Views.shipHistory = () => {
           <div class="field"><label>営業担当者</label>
             <select class="inp" onchange="shipSet('salesRepId', this.value)">
               <option value="">すべての担当者</option>
-              ${reps.map(u => `<option value="${esc(u.id)}"${repSel === u.id ? ' selected' : ''}>${esc(u.name)}${u.role === 'admin' ? '（管理者）' : ''}</option>`).join('')}
+              ${reps.map(u => `<option value="${esc(u.id)}"${repSel === u.id ? ' selected' : ''}>${esc(u.name)}${Role.label(u) ? '（' + Role.label(u) + '）' : ''}</option>`).join('')}
             </select>
           </div>
           <div class="field"><label>出荷状態</label>
@@ -2597,46 +2679,53 @@ Views.shipHistory = () => {
 /* ============================== 帳票発行 ============================== */
 /* ============================== ユーザー管理 ============================== */
 Views.users = () => {
-  const list = Store.db.users;
-  const cnt = r => list.filter(u => u.role === r).length;
-  const enabledCnt = r => list.filter(u => u.role === r && u.enabled).length;
+  /* システム管理者=全ユーザー閲覧 / 組織管理者=自組織のユーザーのみ */
+  const sys = Role.canViewAllOrgs(Auth.user);
+  const list = sys ? Tenant.raw('users').slice().sort((a, b) => Number(a.organizationId) - Number(b.organizationId)) : Store.db.users;
+  const roleOf = u => Role.of(u);
+  const cnt = r => list.filter(u => roleOf(u) === r).length;
+  const enabledCnt = r => list.filter(u => roleOf(u) === r && u.enabled).length;
+  const canEdit = u => sys || Number(u.organizationId) === Tenant.id();
   const isLocked = u => {
     const s = (Store.db.loginSecurity || {})[String(u.loginId).toLowerCase()];
     return !!(s && s.lockedUntil && new Date(s.lockedUntil) > new Date());
   };
   return `<div class="vstack" style="gap:16px">
-    <div class="grid g3">
+    <div class="grid g4">
       ${Object.entries(ROLES).map(([k, r]) => kpiCard({
-        label: r.label, icon: r.icon, bg: `var(--${r.color === 'green' ? 'green-100' : r.color === 'sky' ? 'sky-100' : 'amber-100'})`,
-        fg: `var(--${r.color === 'green' ? 'green-700' : r.color === 'sky' ? 'sky-600' : 'amber-600'})`,
+        label: r.label, icon: r.icon, bg: `var(--${r.color === 'violet' ? 'violet-50' : r.color === 'green' ? 'green-100' : r.color === 'sky' ? 'sky-100' : 'amber-100'})`,
+        fg: `var(--${r.color === 'violet' ? 'violet-600' : r.color === 'green' ? 'green-700' : r.color === 'sky' ? 'sky-600' : 'amber-600'})`,
         value: cnt(k), unit: '名', foot: `有効 ${enabledCnt(k)} 名／${r.desc}`
       })).join('')}
     </div>
+    <div class="note ${sys ? 'green' : ''}">${ico('shield', 15)} ${sys
+      ? 'システム管理者として<b>全組織のユーザー</b>を表示しています（組織列で所属を確認できます）。'
+      : `<b>${esc(Tenant.label())}</b> のユーザーのみ表示・管理できます。他組織のユーザーは参照できません。`}</div>
     <div class="card">
       <div class="card-h"><h2>${ico('user', 16)} ユーザー管理</h2><span class="sub">ユーザーID・パスワード認証のアカウント</span>
         <div class="sp"><button class="btn sm primary" onclick="Actions.userForm()">${ico('plus', 14)} ユーザー登録</button></div></div>
       <div class="card-b tight"><div class="table-wrap"><table class="tb">
-        <thead><tr><th>ユーザーID</th><th>組織</th><th>氏名</th><th>メールアドレス</th><th>電話番号</th><th>ロール</th><th>利用可能機能</th><th>最終ログイン日時</th><th>パスワード変更要求</th><th>状態</th><th></th></tr></thead>
+        <thead><tr><th>ユーザーID</th>${sys ? '<th>組織</th>' : ''}<th>氏名</th><th>メールアドレス</th><th>電話番号</th><th>ロール</th><th>利用可能機能</th><th>最終ログイン日時</th><th>パスワード変更要求</th><th>状態</th><th></th></tr></thead>
         <tbody>${list.map(u => {
-          const funcs = MENU.flatMap(g => g.items).filter(i => i.roles.includes(u.role)).length;
+          const funcs = MENU.flatMap(g => g.items).filter(i => i.roles.includes(roleOf(u)) && (!i.sysOnly || sys)).length;
           return `<tr>
             <td class="mono">${esc(u.loginId)}</td>
-            <td class="sm">${esc(Tenant.name(u.organizationId))}</td>
-            <td><div class="hstack" style="gap:9px"><span class="av" style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;background:${ROLES[u.role].av}">${esc(u.name.charAt(0))}</span><span class="strong">${esc(u.name)}</span></div></td>
+            ${sys ? `<td class="sm">${esc(Tenant.name(u.organizationId))}</td>` : ''}
+            <td><div class="hstack" style="gap:9px"><span class="av" style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;background:${(ROLES[roleOf(u)] || {}).av}">${esc(u.name.charAt(0))}</span><span class="strong">${esc(u.name)}</span></div></td>
             <td class="mono">${esc(u.email)}</td>
             <td class="sm">${esc(u.tel || '—')}</td>
-            <td><span class="badge ${ROLES[u.role].color}">${esc((ROLES[u.role] || {}).label || u.role)}</span></td>
+            <td><span class="badge ${(ROLES[roleOf(u)] || {}).color || 'gray'}">${esc(Role.label(u))}</span></td>
             <td class="sm muted">${funcs} 機能</td>
             <td class="sm nowrap mono">${u.lastLoginAt ? dtJP(u.lastLoginAt) : '—'}</td>
             <td class="nowrap">${u.forcePasswordChange ? '<span class="badge amber">要求中</span>' : '<span class="muted">—</span>'}</td>
             <td class="nowrap">${u.enabled ? '<span class="badge green">有効</span>' : '<span class="badge gray">無効</span>'}${isLocked(u) ? ' <span class="badge rose">ロック中</span>' : ''}${u.forcePasswordChange ? ' <span class="badge amber">初回パスワード</span>' : ''}</td>
-            <td class="right"><div class="tb-act">
+            <td class="right"><div class="tb-act">${canEdit(u) ? `
               <button class="btn xs" onclick="Actions.userForm('${u.id}')">編集</button>
               <button class="btn xs" onclick="Actions.userPasswordForm('${u.id}')">パスワード</button>
               <button class="btn xs" onclick="Actions.reissueUserPassword('${u.id}')">初期化</button>
               <button class="btn xs primary" onclick="Actions.resetUserPassword('${u.id}')">パスワードリセット</button>
               <button class="btn xs" onclick="Actions.toggleUserEnabled('${u.id}')">${u.enabled ? '無効化' : '有効化'}</button>
-              <button class="btn xs danger" onclick="Actions.deleteUser('${u.id}')">削除</button></div></td></tr>`;
+              <button class="btn xs danger" onclick="Actions.deleteUser('${u.id}')">削除</button>` : '<span class="tiny muted">他組織</span>'}</div></td></tr>`;
         }).join('')}</tbody>
       </table></div></div>
     </div>
@@ -2646,7 +2735,7 @@ Views.users = () => {
         <thead><tr><th>機能</th>${Object.values(ROLES).map(r => `<th class="center">${r.label}</th>`).join('')}</tr></thead>
         <tbody>${MENU.flatMap(g => g.items).map(i => `<tr>
           <td class="strong">${esc(i.label)}<div class="tiny muted">${esc(i.sub)}</div></td>
-          ${Object.keys(ROLES).map(r => `<td class="center">${i.roles.includes(r) ? `<span style="color:var(--green-600)">${ico('check', 17, 3)}</span>` : '<span class="muted">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody>
+          ${Object.keys(ROLES).map(r => `<td class="center">${(i.roles.includes(r) && (!i.sysOnly || r === 'system_admin')) ? `<span style="color:var(--green-600)">${ico('check', 17, 3)}</span>` : '<span class="muted">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody>
       </table></div></div>
     </div>
     <div class="card">
@@ -2676,16 +2765,20 @@ Views.organizations = () => {
   if (!Tenant.isSystemAdmin()) return `<div class="card"><div class="card-b">${emptyBox('権限がありません', '組織マスタはシステム管理者のみ利用できます')}</div></div>`;
   const list = Tenant.all().slice().sort((a, b) => Number(a.id) - Number(b.id));
   const cur = Tenant.id();
-  const countOf = (tbl, id) => ((Store.db[tbl] || []).filter(r => Number(r.organizationId) === Number(id))).length;
+  /* system_admin は全組織の件数を参照できる（Tenant.raw はスコープ前の全行） */
+  const countOf = (tbl, id) => Tenant.raw(tbl).filter(r => Number(r.organizationId) === Number(id)).length;
+  const stat = id => Tenant.orgStats(id);
   const rows = list.map(o => {
-    const users = countOf('users', o.id);
-    const companies = countOf('companies', o.id);
+    const s = stat(o.id);
     return `<tr>
       <td class="mono">${esc(o.id)}</td>
       <td class="mono">${esc(o.organizationCode)}</td>
       <td class="strong">${esc(o.organizationName)}${Number(o.id) === cur ? ' <span class="badge green">ログイン中</span>' : ''}</td>
-      <td class="num">${companies}</td>
-      <td class="num">${users}</td>
+      <td class="num">${s.companies}</td>
+      <td class="num">${s.users}</td>
+      <td class="num">${s.customers}</td>
+      <td class="num">${s.orders}</td>
+      <td class="num">${s.shipments}</td>
       <td>${o.isActive === false ? '<span class="badge gray">停止</span>' : '<span class="badge green">有効</span>'}</td>
       <td class="tiny muted nowrap">${o.createdAt ? dtJP(o.createdAt) : '—'}</td>
       <td class="right"><div class="tb-act">
@@ -2699,12 +2792,12 @@ Views.organizations = () => {
       ${kpiCard({ label: '現在の組織', icon: 'shield', bg: 'var(--green-100)', fg: 'var(--green-700)', value: Tenant.code(), unit: '', foot: Tenant.name() })}
       ${kpiCard({ label: '所属ユーザー', icon: 'user', bg: 'var(--sky-100)', fg: 'var(--sky-600)', value: countOf('users', cur), unit: '名', foot: 'この組織のアカウント数' })}
     </div>
-    <div class="note green">${ico('layers', 15)} 組織マスタは <b>システム管理者のみ</b> が操作できます。組織を「停止」してもデータは削除されません（所属ユーザーのログインと参照ができなくなります）。</div>
+    <div class="note green">${ico('layers', 15)} 組織マスタは <b>システム管理者のみ</b> が操作できます。各組織の件数は全組織の実データを集計したものです（業務画面・帳票は自組織のみ）。組織を「停止」してもデータは削除されません（所属ユーザーのログインと参照ができなくなります）。</div>
     <div class="card">
       <div class="card-h"><h2>${ico('layers', 16)} 組織マスタ</h2><span class="sub">組織 → 会社 → 拠点 の階層でデータを隔離します</span>
         <div class="sp"><button class="btn sm primary" onclick="Actions.organizationForm('')">${ico('plus', 14)} 組織を登録</button></div></div>
       <div class="card-b tight"><div class="table-wrap"><table class="tb">
-        <thead><tr><th>ID</th><th>組織コード</th><th>組織名</th><th class="num">会社</th><th class="num">ユーザー</th><th>状態</th><th>登録日</th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>組織コード</th><th>組織名</th><th class="num">会社</th><th class="num">ユーザー</th><th class="num">得意先</th><th class="num">受注</th><th class="num">出荷</th><th>状態</th><th>登録日</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div></div>
     </div>
@@ -3223,6 +3316,7 @@ const chkBox = (id, label, on) => `<label class="chk"><input type="checkbox" id=
 const IssuerAdmin = {
   /* ------------------------- 会社 ------------------------- */
   companyForm(id) {
+    if (typeof Role !== 'undefined' && !Role.canManageMaster(Auth.user)) return UI.toast('マスタ管理の権限がありません', 'err');
     const c = id ? Issuer.company(id) : null;
     const v = Issuer.companyVisible(c);
     UI.modal(c ? '会社を編集' : '会社を登録', c ? c.name : 'グループ会社・自社を登録します（複数登録可）', `
@@ -3272,6 +3366,7 @@ const IssuerAdmin = {
 
   /* ------------------------- 拠点 ------------------------- */
   branchForm(id, companyId) {
+    if (typeof Role !== 'undefined' && !Role.canManageMaster(Auth.user)) return UI.toast('マスタ管理の権限がありません', 'err');
     const b = id ? Issuer.branch(id) : null;
     const coId = (b && b.companyId) || companyId || (Issuer.companies(true)[0] || {}).id || '';
     if (!coId) return UI.toast('先に会社マスタを登録してください', 'err');
@@ -3331,6 +3426,7 @@ const IssuerAdmin = {
 
   /* ------------------------- 帳票テンプレート ------------------------- */
   templateForm(id) {
+    if (typeof Role !== 'undefined' && !Role.canManageMaster(Auth.user)) return UI.toast('マスタ管理の権限がありません', 'err');
     if (typeof TplEditor !== 'undefined') return TplEditor.open(id);
     const t = id ? Issuer.template(id) : null;
     UI.modal(t ? 'テンプレートを編集' : 'テンプレートを登録', t ? t.name : '帳票種別ごとの表示項目を定義します', `
@@ -4971,7 +5067,7 @@ const Actions = {
   /* ------------------------- ユーザー管理（ID・パスワード認証） ------------------------- */
   /* ------------------------- 組織マスタ（システム管理者のみ） ------------------------- */
   organizationForm(id) {
-    if (!Tenant.isSystemAdmin()) return UI.toast('組織マスタはシステム管理者のみ操作できます', 'err');
+    if (!Role.canSystem(Auth.user)) return UI.toast('組織マスタはシステム管理者のみ操作できます', 'err');
     const o = id ? Tenant.org(id) : null;
     UI.modal(o ? '組織を編集' : '組織を登録', o ? o.organizationCode : 'テナント（組織）を追加します', `
       <div class="form-grid c2">
@@ -4985,7 +5081,7 @@ const Actions = {
       `<button class="btn" onclick="UI.closeModal()">キャンセル</button><button class="btn primary" onclick="Actions.saveOrganization('${id || ''}')">${ico('check', 15)} 保存</button>`);
   },
   saveOrganization(id) {
-    if (!Tenant.isSystemAdmin()) return UI.toast('組織マスタはシステム管理者のみ操作できます', 'err');
+    if (!Role.canSystem(Auth.user)) return UI.toast('組織マスタはシステム管理者のみ操作できます', 'err');
     const g = n => (document.getElementById(n) || {}).value || '';
     const code = g('o_code').trim(), name = g('o_name').trim();
     if (!code || !name) return UI.toast('組織コードと組織名は必須です', 'err');
@@ -5004,7 +5100,7 @@ const Actions = {
     Store.save(); UI.closeModal(); App.repaint();
   },
   toggleOrganization(id) {
-    if (!Tenant.isSystemAdmin()) return UI.toast('組織マスタはシステム管理者のみ操作できます', 'err');
+    if (!Role.canSystem(Auth.user)) return UI.toast('組織マスタはシステム管理者のみ操作できます', 'err');
     const o = Tenant.org(id); if (!o) return;
     if (Number(o.id) === Tenant.id()) return UI.toast('ログイン中の組織は停止できません', 'err');
     if (o.isActive !== false && (Store.db.organizations || []).filter(x => x.isActive !== false).length <= 1)
@@ -5015,7 +5111,9 @@ const Actions = {
   },
 
   userForm(id) {
+    if (!Role.canManageUsers(Auth.user)) return UI.toast('ユーザー管理の権限がありません', 'err');
     const u = id ? Store.user(id) : null;
+    if (u && !Role.canViewAllOrgs(Auth.user) && Number(u.organizationId) !== Tenant.id()) return UI.toast('他組織のユーザーは編集できません', 'err');
     UI.modal(u ? 'ユーザー編集' : 'ユーザー登録', u ? `ログインID ${u.loginId}` : '初期パスワード Temp1234! で登録します（初回ログイン時に変更必須）', `
       <div class="form-grid c2">
         <div class="field"><label>ユーザーID *</label><input class="inp" id="u_login" value="${esc(u ? u.loginId : '')}" placeholder="例：shipping2"></div>
@@ -5025,7 +5123,8 @@ const Actions = {
         <div class="field"><label>所属組織 *</label><select class="inp" id="u_org"${Tenant.isSystemAdmin() ? '' : ' disabled'}>
           ${(Tenant.all()).map(o => `<option value="${esc(o.id)}"${Number(u ? (u.organizationId || 1) : Tenant.id()) === Number(o.id) ? ' selected' : ''}>${esc(o.organizationName)}（${esc(o.organizationCode)}）</option>`).join('')}</select></div>
         <div class="field"><label>ロール *</label><select class="inp" id="u_role">
-          ${Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${u && u.role === k ? ' selected' : ''}>${r.label} — ${r.desc}</option>`).join('')}</select></div>
+          ${Role.assignable(Auth.user).map(k => `<option value="${k}"${u && Role.of(u) === k ? ' selected' : ''}>${ROLES[k].label} — ${ROLES[k].desc}</option>`).join('')}</select>
+          ${Role.canSystem(Auth.user) ? '' : '<div class="tiny muted">システム管理者の付与はシステム管理者のみ可能です</div>'}</div>
         <div class="field"><label>有効／無効</label><select class="inp" id="u_enabled">
           <option value="1"${!u || u.enabled ? ' selected' : ''}>有効</option>
           <option value="0"${u && !u.enabled ? ' selected' : ''}>無効</option></select></div>
@@ -5041,13 +5140,21 @@ const Actions = {
     if (Store.db.users.some(x => String(x.loginId).toLowerCase() === loginId.toLowerCase() && x.id !== id)) return UI.toast('そのユーザーIDは既に使われています', 'err');
     const enabled = g('u_enabled') !== '0';
     /* マルチテナント: 所属組織。システム管理者以外は自組織に固定（他組織へは作成不可） */
-    const orgId = Tenant.isSystemAdmin() && g('u_org') ? Number(g('u_org')) : Tenant.id();
+    const orgId = Role.canViewAllOrgs(Auth.user) && g('u_org') ? Number(g('u_org')) : Tenant.id();
     if (!Tenant.all().some(o => Number(o.id) === orgId)) return UI.toast('所属組織が不正です', 'err');
+    /* 権限: 付与できるロールは実行者に依存（org_admin は system_admin / org_admin を付与できない） */
+    if (!Role.canAssign(Auth.user, role)) return UI.toast('このロールを付与する権限がありません', 'err');
+    if (!Role.canManageUsers(Auth.user)) return UI.toast('ユーザー管理の権限がありません', 'err');
     if (id) {
       const u = Store.user(id);
-      /* 最後の有効管理者のロール変更・無効化は不可 */
-      if (u.role === 'admin' && u.enabled && (!enabled || role !== 'admin')
-        && !Store.db.users.some(x => x.id !== id && x.role === 'admin' && x.enabled))
+      if (!u) return UI.toast('ユーザーが見つかりません', 'err');
+      /* 他組織のユーザーは編集不可（system_admin 以外） */
+      if (!Role.canViewAllOrgs(Auth.user) && Number(u.organizationId) !== Tenant.id()) return UI.toast('他組織のユーザーは編集できません', 'err');
+      /* 既存のシステム管理者を降格・無効化できるのはシステム管理者のみ */
+      if (Role.isSystemAdmin(u) && !Role.canSystem(Auth.user)) return UI.toast('このユーザーを変更する権限がありません', 'err');
+      /* 最後の（組織）管理者のロール変更・無効化は不可 */
+      const admins = Store.db.users.filter(x => x.id !== id && x.enabled && Role.canManageUsers(x) && Number(x.organizationId) === Number(u.organizationId));
+      if (Role.canManageUsers(u) && u.enabled && (!enabled || !Role.canManageUsers({ role })) && !admins.length)
         return UI.toast('有効な管理者がいなくなるため変更できません', 'err');
       Object.assign(u, { loginId, name, email: g('u_mail'), tel: g('u_tel'), role, enabled, organizationId: orgId, updatedAt: new Date().toISOString() });
       UI.toast(`ユーザー ${loginId} を更新しました`, 'ok');
@@ -5111,7 +5218,7 @@ const Actions = {
   },
   /* パスワードリセット（管理者専用）：ランダムな仮パスワードを発行し、次回ログイン時に変更を必須化する */
   resetUserPassword(id) {
-    if (!Auth.user || Auth.user.role !== 'admin') return UI.toast('この操作は管理者のみ利用できます', 'err');
+    if (!Role.canSystem(Auth.user)) return UI.toast('この操作はシステム管理者のみ利用できます', 'err');
     const u = Store.user(id);
     if (!u) return;
     UI.modal('パスワードリセット', '', `<div class="note amber" style="white-space:pre-line">ユーザー：${esc(u.name)}（${esc(u.loginId)}）
@@ -5158,7 +5265,10 @@ const Actions = {
     const u = Store.user(id);
     if (!u) return;
     if (Auth.user && u.id === Auth.user.id) return UI.toast('自分のアカウントは無効化できません', 'err');
-    if (u.enabled && u.role === 'admin' && !Store.db.users.some(x => x.id !== id && x.role === 'admin' && x.enabled))
+    if (!Role.canManageUsers(Auth.user)) return UI.toast('ユーザー管理の権限がありません', 'err');
+    if (!Role.canViewAllOrgs(Auth.user) && Number(u.organizationId) !== Tenant.id()) return UI.toast('他組織のユーザーは操作できません', 'err');
+    if (Role.isSystemAdmin(u) && !Role.canSystem(Auth.user)) return UI.toast('このユーザーを操作する権限がありません', 'err');
+    if (u.enabled && Role.canManageUsers(u) && !Store.db.users.some(x => x.id !== id && x.enabled && Role.canManageUsers(x) && Number(x.organizationId) === Number(u.organizationId)))
       return UI.toast('有効な管理者がいなくなるため無効化できません', 'err');
     UI.confirm(u.enabled ? 'ユーザーの無効化' : 'ユーザーの有効化',
       `${u.name}（${u.loginId}）を${u.enabled ? '無効化します。無効化されたユーザーはログインできなくなります' : '有効化します'}。`, () => {
@@ -5174,7 +5284,10 @@ const Actions = {
     const u = Store.user(id);
     if (!u) return;
     if (Auth.user && u.id === Auth.user.id) return UI.toast('自分のアカウントは削除できません', 'err');
-    if (u.role === 'admin' && u.enabled && !Store.db.users.some(x => x.id !== id && x.role === 'admin' && x.enabled))
+    if (!Role.canManageUsers(Auth.user)) return UI.toast('ユーザー管理の権限がありません', 'err');
+    if (!Role.canViewAllOrgs(Auth.user) && Number(u.organizationId) !== Tenant.id()) return UI.toast('他組織のユーザーは操作できません', 'err');
+    if (Role.isSystemAdmin(u) && !Role.canSystem(Auth.user)) return UI.toast('このユーザーを操作する権限がありません', 'err');
+    if (u.enabled && Role.canManageUsers(u) && !Store.db.users.some(x => x.id !== id && x.enabled && Role.canManageUsers(x) && Number(x.organizationId) === Number(u.organizationId)))
       return UI.toast('有効な管理者がいなくなるため削除できません', 'err');
     UI.confirm('ユーザー削除', `${u.name}（${u.loginId}）を削除します。よろしいですか？`, () => {
       Store.db.users = Store.db.users.filter(x => x.id !== id);

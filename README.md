@@ -243,3 +243,29 @@ build/agri-erp-supabase.html を差し替え
 ```
 node scripts/tenant_smoke.js   # 組織隔離・自動付与・組織管理・移行・RLS定義
 ```
+
+## 権限管理（4ロール） ver 3.5
+
+権限を **system_admin / org_admin / manager / user** に再編しました。
+
+| ロール | できること |
+|---|---|
+| system_admin | 組織マスタ／全組織閲覧／全ユーザー閲覧／システム設定／全マスタ |
+| org_admin | 自組織の会社・拠点・帳票テンプレート・ユーザー管理（他組織は不可） |
+| manager | 業務全般（受注・発注・在庫・出荷・帳票）。マスタ管理・ユーザー管理は不可 |
+| user | 日常業務（受注・在庫・出荷・帳票） |
+
+- 組織マスタ画面は **system_admin 以外はメニューに出ません**（`sysOnly` + 画面ガード）
+- org_admin は **system_admin / org_admin を付与できません**（アプリ／SQLトリガの二重ガード）
+- 旧ロールは自動移行：`admin`（管理者フラグ有）→ system_admin、`admin` → org_admin、`office`/`shipping` → user
+- RLS も同規則：`is_system_admin() or organization_id = current_org_id()`（`using` / `with check` 両方）
+
+### 適用
+```
+sql/09_roles_permissions.sql   -- 08_multi_tenant.sql の後に実行
+```
+
+### 検証
+```
+node scripts/roles_smoke.js
+```
