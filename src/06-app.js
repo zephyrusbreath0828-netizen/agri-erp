@@ -249,7 +249,7 @@ const Actions = {
     window.__lines = [{ itemId: Store.db.items[0].id, qty: 1, price: Store.db.items[0].salePrice }];
     const c0 = Store.db.customers[0] || {};
     window.__oCust = c0.id || '';
-    window.__oRep = c0.salesRepId || ((Store.salesReps()[0] || {}).id || '');
+    window.__oRep = Owner.isCandidate(c0.salesRepId) ? c0.salesRepId : Owner.defaultId();
     this._drawOrderForm();
   },
   /* 得意先の変更で営業担当者を既定担当へ追従 */
@@ -268,7 +268,7 @@ const Actions = {
         <div class="field"><label>受注日 *</label><input class="inp" type="date" id="o_date" value="${TODAY}"></div>
         <div class="field"><label>納期 *</label><input class="inp" type="date" id="o_due" value="${todayStr(addDays(new Date(), 2))}"></div>
         <div class="field span2"><label>得意先 *</label><select class="inp" id="o_cust" onchange="Actions.chgOrderCust(this.value)">${Store.db.customers.map(x => `<option value="${x.id}"${window.__oCust === x.id ? ' selected' : ''}>${esc(x.code)} ${esc(x.name)}</option>`).join('')}</select></div>
-        <div class="field"><label>営業担当者</label><select class="inp" id="o_rep">${Store.salesReps().map(u => `<option value="${esc(u.id)}"${window.__oRep === u.id ? ' selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>担当営業 *</label>${Owner.pickerHtml('o', 'orders', { salesUserId: window.__oRep || Owner.defaultId() })}</div>
       </div>
 
       <div class="hr"></div>
@@ -311,6 +311,8 @@ const Actions = {
     const issErr = Issuer.validate('o'); if (issErr) return UI.toast(issErr, 'err');
     const issuer = Issuer.stamp('o');
     const orderNo = Store.nextNo('ORD', document.getElementById('o_date').value);
+    const ownerId = Owner.pick('o') || null;
+    if (ownerId && !Owner.isCandidate(ownerId)) return UI.toast('担当者は自組織のユーザーから選択してください', 'err');
     let sub = 0;
     const oid = uid();
     const ols = lines.map((l, i) => {
@@ -322,7 +324,7 @@ const Actions = {
     const tax = Math.round(sub * .08);
     Store.db.orders.unshift({
       id: oid, orderNo, customerId: custId, customerName: Store.customer(custId).name,
-      salesRepId: (document.getElementById('o_rep') || {}).value || null,
+      salesRepId: ownerId, salesUserId: ownerId,
       orderDate: document.getElementById('o_date').value, dueDate: document.getElementById('o_due').value,
       shipDate: document.getElementById('o_due').value, status: 'received',
       companyId: issuer.companyId, branch1Id: issuer.branch1Id, branch2Id: issuer.branch2Id,
@@ -336,7 +338,7 @@ const Actions = {
   orderDetail(id) {
     const o = Store.order(id);
     const lines = Store.orderLines(o.id);
-    UI.modal(`受注 ${o.orderNo}`, `${o.customerName} ／ 受注日 ${dJP(o.orderDate)}`, `
+    UI.modal(`受注 ${o.orderNo}`, `${o.customerName} ／ 受注日 ${dJP(o.orderDate)} ／ 担当営業 ${Owner.display(Owner.idOf('orders', o))}`, `
       <div class="grid g3 mb16">
         <div class="kpi" style="padding:11px 13px"><div class="k-lb">受注金額</div><div class="k-v" style="font-size:20px">${money(o.total)}</div></div>
         <div class="kpi" style="padding:11px 13px"><div class="k-lb">納期</div><div class="k-v" style="font-size:20px">${dJP(o.dueDate)}</div><div class="k-f">${relDay(o.dueDate)}</div></div>
@@ -354,6 +356,7 @@ const Actions = {
         <div class="table-wrap mt8"><table class="tb" style="min-width:480px"><thead><tr><th>出荷番号</th><th>出荷日</th><th>状態</th></tr></thead>
         <tbody>${Store.db.shipments.filter(s => s.orderId === o.id).map(s => `<tr><td class="mono">${esc(s.shipmentNo)}</td><td class="sm">${dJP(s.shipDate)}</td><td>${s.status === 'confirmed' ? '<span class="badge green">確定</span>' : '<span class="badge amber">指示済</span>'}</td></tr>`).join('')}</tbody></table></div>` : ''}`,
       `<button class="btn" onclick="UI.closeModal()">閉じる</button>
+       <button class="btn" onclick="UI.closeModal();Actions.ownerForm('orders','${o.id}')">担当者変更</button>
        ${Store.orderRemaining(o) > 0 ? `<button class="btn primary" onclick="UI.closeModal();Actions.newShipFromOrder('${o.id}')">${ico('truck', 15)} 出荷指示を作成</button>` : ''}
        <button class="btn danger" onclick="UI.closeModal();Actions.cancelOrder('${o.id}')">取消</button>`, 'wide');
   },
@@ -372,6 +375,7 @@ const Actions = {
       const sup = Store.supplier(it.supplierId) || Store.db.suppliers[0];
       window.__poSup = sup.id; window.__poLead = sup.leadTime;
     } else { window.__poSup = Store.db.suppliers[0].id; window.__poLead = Store.db.suppliers[0].leadTime; }
+    if (!window.__poRep || !Owner.isCandidate(window.__poRep)) window.__poRep = Owner.defaultId();
     this._drawPOForm();
   },
   _drawPOForm() {
@@ -386,6 +390,7 @@ const Actions = {
         <div class="field"><label>入荷予定日 *</label><input class="inp" type="date" id="p_exp" value="${exp}"><span class="hint">リードタイム ${sup.leadTime} 日から自動計算</span></div>
         <div class="field span3"><label>仕入先 *</label><select class="inp" onchange="Actions.chgPOSup(this.value)">
           ${Store.db.suppliers.map(s => `<option value="${s.id}"${window.__poSup === s.id ? ' selected' : ''}>${esc(s.code)} ${esc(s.name)}（LT ${s.leadTime}日）</option>`).join('')}</select></div>
+        <div class="field span3"><label>発注担当 *</label>${Owner.pickerHtml('p', 'purchaseOrders', { purchaseUserId: window.__poRep || Owner.defaultId() })}</div>
       </div>
 
       <div class="hr"></div>
@@ -424,6 +429,8 @@ const Actions = {
     const issErr = Issuer.validate('p'); if (issErr) return UI.toast(issErr, 'err');
     const issuer = Issuer.stamp('p');
     const poNo = Store.nextNo('PO', document.getElementById('p_date').value);
+    const ownerId = Owner.pick('p') || null;
+    if (ownerId && !Owner.isCandidate(ownerId)) return UI.toast('担当者は自組織のユーザーから選択してください', 'err');
     const exp = document.getElementById('p_exp').value;
     let sub = 0; const pid = uid();
     const pls = lines.map((l, i) => {
@@ -437,6 +444,7 @@ const Actions = {
       orderDate: document.getElementById('p_date').value, expectedDate: exp, status: 'ordered',
       companyId: issuer.companyId, branch1Id: issuer.branch1Id, branch2Id: issuer.branch2Id,
       subtotal: sub, tax, total: sub + tax, remarks: document.getElementById('p_remarks').value,
+      purchaseUserId: ownerId,
       createdBy: Auth.user ? Auth.user.id : null, createdAt: new Date().toISOString()
     });
     pls.forEach(l => Store.db.poLines.push(l));
@@ -445,7 +453,7 @@ const Actions = {
   },
   poDetail(id) {
     const p = Store.po(id); const lines = Store.poLines(p.id);
-    UI.modal(`発注 ${p.poNo}`, `${p.supplierName} ／ 発注日 ${dJP(p.orderDate)}`, `
+    UI.modal(`発注 ${p.poNo}`, `${p.supplierName} ／ 発注日 ${dJP(p.orderDate)} ／ 発注担当 ${Owner.display(Owner.idOf('purchaseOrders', p))}`, `
       <div class="grid g3 mb16">
         <div class="kpi" style="padding:11px 13px"><div class="k-lb">発注金額</div><div class="k-v" style="font-size:20px">${money(p.total)}</div></div>
         <div class="kpi" style="padding:11px 13px"><div class="k-lb">入荷予定日</div><div class="k-v" style="font-size:20px">${dJP(p.expectedDate)}</div><div class="k-f">${relDay(p.expectedDate)}</div></div>
@@ -459,6 +467,7 @@ const Actions = {
           <td class="num">${money(l.unitPrice)}</td><td class="num">${money(l.amount)}</td></tr>`).join('')}</tbody>
       </table></div>`,
       `<button class="btn" onclick="UI.closeModal()">閉じる</button>
+       <button class="btn" onclick="UI.closeModal();Actions.ownerForm('purchaseOrders','${p.id}')">担当者変更</button>
        ${Store.poRemaining(p) > 0 ? `<button class="btn primary" onclick="UI.closeModal();Actions.receiveForm('${p.id}')">${ico('inbox', 15)} 入荷処理</button>` : ''}`, 'wide');
   },
 
@@ -472,6 +481,7 @@ const Actions = {
     } else {
       window.__rcPO = ''; window.__rcLines = [{ poLineId: null, itemId: Store.db.items[0].id, qty: 1, cost: Store.db.items[0].costPrice, lot: '' }];
     }
+    if (!window.__rcRep || !Owner.isCandidate(window.__rcRep)) window.__rcRep = Owner.defaultId();
     this._drawReceiveForm();
   },
   _drawReceiveForm() {
@@ -488,6 +498,7 @@ const Actions = {
           <option value="">発注に紐付けない（直接入荷）</option>
           ${Store.db.purchaseOrders.filter(x => Store.poRemaining(x) > 0).map(x => `<option value="${x.id}"${window.__rcPO === x.id ? ' selected' : ''}>${esc(x.poNo)} ／ ${esc(x.supplierName)} ／ 残 ${dec(Store.poRemaining(x))}</option>`).join('')}
         </select></div>
+        <div class="field span3"><label>受入担当 *</label>${Owner.pickerHtml('r', 'receipts', { receiptUserId: window.__rcRep || Owner.defaultId() })}</div>
       </div>
 
       <div class="hr"></div>
@@ -526,6 +537,8 @@ const Actions = {
     const issuer = Issuer.stamp('r');
     const poId = window.__rcPO || null;
     const supId = poId ? Store.po(poId).supplierId : document.getElementById('r_sup').value;
+    const ownerId = Owner.pick('r') || null;
+    if (ownerId && !Owner.isCandidate(ownerId)) return UI.toast('担当者は自組織のユーザーから選択してください', 'err');
     const receiptNo = Store.nextNo('RC');
     const rid = uid();
     let sub = 0;
@@ -539,12 +552,12 @@ const Actions = {
       receiptDate: document.getElementById('r_date').value, status: 'confirmed',
       companyId: issuer.companyId, branch1Id: issuer.branch1Id, branch2Id: issuer.branch2Id,
       subtotal: sub, tax, total: sub + tax, remarks: document.getElementById('r_remarks').value,
-      receivedBy: Auth.user ? Auth.user.id : null, createdAt: new Date().toISOString()
+      receivedBy: Auth.user ? Auth.user.id : null, receiptUserId: ownerId, createdAt: new Date().toISOString()
     });
     /* 在庫加算 + 発注残更新 */
     rls.forEach(l => {
       Store.db.receiptLines.push(l);
-      Store.applyStock(l.itemId, l.quantity, 'receipt', { table: 'receipts', id: rid, no: receiptNo, notes: '入荷確定' });
+      Store.applyStock(l.itemId, l.quantity, 'receipt', { table: 'receipts', id: rid, no: receiptNo, notes: '入荷確定', ownerId: ownerId });
       if (l.poLineId) { const pl = Store.db.poLines.find(x => x.id === l.poLineId); if (pl) pl.receivedQty += l.quantity; }
     });
     /* 発注ステータス更新 */
@@ -559,13 +572,14 @@ const Actions = {
   receiptDetail(id) {
     const r = Store.db.receipts.find(x => x.id === id);
     const lines = Store.receiptLines(id);
-    UI.modal(`入荷 ${r.receiptNo}`, `${r.supplierName} ／ ${dJP(r.receiptDate)}`, `
+    UI.modal(`入荷 ${r.receiptNo}`, `${r.supplierName} ／ ${dJP(r.receiptDate)} ／ 受入担当 ${Owner.display(Owner.idOf('receipts', r))}`, `
       <div class="table-wrap"><table class="tb" style="min-width:520px">
         <thead><tr><th>品名</th><th class="right">入荷数</th><th class="right">単価</th><th class="right">金額</th><th>ロット</th></tr></thead>
         <tbody>${lines.map(l => `<tr><td class="strong">${esc(l.itemName)}</td><td class="num">${dec(l.quantity)}</td>
           <td class="num">${money(l.unitCost)}</td><td class="num">${money(l.amount)}</td><td class="mono">${esc(l.lotNo || '—')}</td></tr>`).join('')}</tbody>
         <tfoot><tr><td colspan="3" class="right strong">合計（税込）</td><td class="num strong">${money(r.total)}</td><td></td></tr></tfoot>
-      </table></div>`, `<button class="btn" onclick="UI.closeModal()">閉じる</button>`, 'wide');
+      </table></div>`, `<button class="btn" onclick="UI.closeModal()">閉じる</button>
+        <button class="btn" onclick="UI.closeModal();Actions.ownerForm('receipts','${r.id}')">担当者変更</button>`, 'wide');
   },
 
   /* ------------------------- 出荷 ------------------------- */
@@ -600,6 +614,7 @@ const Actions = {
         <div class="field"><label>運送会社</label><select class="inp" id="sh_carrier">
           <option>ヤマト運輸</option><option>佐川急便</option><option>福山通運</option><option>西濃運輸</option><option>自社配送</option><option>その他</option></select></div>
         <div class="field span3"><label>出荷先</label><input class="inp" id="sh_to" value="${esc(c.name || '')} ${esc(c.address || '')}"></div>
+        <div class="field span3"><label>出荷担当 *</label>${Owner.pickerHtml('sh', 'shipments', { shipmentUserId: (window.__shRep && Owner.isCandidate(window.__shRep)) ? window.__shRep : Owner.defaultId() })}</div>
       </div>
 
       <div class="hr"></div>
@@ -628,6 +643,8 @@ const Actions = {
     const issuer = Issuer.stamp('sh');
     const sid = uid();
     const shipNo = Store.nextNo('SH', document.getElementById('sh_date').value);
+    const ownerId = Owner.pick('sh') || null;
+    if (ownerId && !Owner.isCandidate(ownerId)) return UI.toast('担当者は自組織のユーザーから選択してください', 'err');
     Store.db.shipments.unshift({
       id: sid, shipmentNo: shipNo, orderId: o.id, orderNo: o.orderNo, customerId: o.customerId, customerName: o.customerName,
       shipDate: document.getElementById('sh_date').value, status: 'instructed',
@@ -635,6 +652,7 @@ const Actions = {
       carrier: document.getElementById('sh_carrier').value, trackingNo: '',
       shipToName: document.getElementById('sh_to').value, shipToAddr: (Store.customer(o.customerId) || {}).address || '',
       remarks: document.getElementById('sh_remarks').value, confirmedAt: null,
+      shipmentUserId: ownerId,
       createdBy: Auth.user ? Auth.user.id : null, createdAt: new Date().toISOString()
     });
     lines.forEach(l => Store.db.shipmentLines.push({
@@ -649,7 +667,7 @@ const Actions = {
     const s = Store.shipment(id);
     const lines = Store.shipLines(id);
     const qty = lines.reduce((a, l) => a + l.quantity, 0);
-    UI.modal(`出荷 ${s.shipmentNo}`, `${s.customerName} ／ ${dJP(s.shipDate)}`, `
+    UI.modal(`出荷 ${s.shipmentNo}`, `${s.customerName} ／ ${dJP(s.shipDate)} ／ 出荷担当 ${Owner.display(Owner.idOf('shipments', s))}`, `
       <div class="grid g3 mb16">
         <div class="kpi" style="padding:11px 13px"><div class="k-lb">状態</div><div class="k-v" style="font-size:19px">${s.status === 'confirmed' ? '確定済' : '指示済'}</div><div class="k-f">${s.confirmedAt ? dtJP(s.confirmedAt) + ' 確定' : '未確定'}</div></div>
         <div class="kpi" style="padding:11px 13px"><div class="k-lb">合計数量</div><div class="k-v" style="font-size:19px">${num(qty)} 点</div><div class="k-f">${lines.length} 明細</div></div>
@@ -669,7 +687,8 @@ const Actions = {
           <button class="btn" onclick="Print.slip('${s.id}')">${ico('print', 14)} 出荷伝票</button>
           <button class="btn primary" onclick="Print.picking('${s.id}')">${ico('print', 14)} ピッキングリスト</button>` : ''}
       </div>`,
-      `${s.status === 'instructed' ? `<button class="btn" onclick="UI.closeModal()">閉じる</button>
+      `<button class="btn" onclick="UI.closeModal();Actions.ownerForm('shipments','${s.id}')">担当者変更</button>
+      ${s.status === 'instructed' ? `<button class="btn" onclick="UI.closeModal()">閉じる</button>
         <button class="btn primary" onclick="UI.closeModal();Actions.confirmShipment('${s.id}')">${ico('check', 15)} 出荷を確定する</button>` : `<button class="btn" onclick="UI.closeModal()">閉じる</button>`}`, 'wide');
   },
   confirmShipment(id) {
@@ -684,7 +703,7 @@ const Actions = {
       if (!s.trackingNo) s.trackingNo = 'TRK' + Math.floor(100000 + Math.random() * 899999);
       /* 在庫減算 + 受注残更新 */
       lines.forEach(l => {
-        Store.applyStock(l.itemId, -l.quantity, 'shipment', { table: 'shipments', id: s.id, no: s.shipmentNo, notes: '出荷確定' });
+        Store.applyStock(l.itemId, -l.quantity, 'shipment', { table: 'shipments', id: s.id, no: s.shipmentNo, notes: '出荷確定', ownerId: Owner.idOf('shipments', s) });
         if (l.orderLineId) { const ol = Store.db.orderLines.find(x => x.id === l.orderLineId); if (ol) ol.shippedQty += l.quantity; }
       });
       if (s.orderId) {
@@ -766,6 +785,15 @@ const Actions = {
         <div class="field"><label>氏名 *</label><input class="inp" id="u_name" value="${esc(u ? u.name : '')}"></div>
         <div class="field"><label>メールアドレス</label><input class="inp" id="u_mail" value="${esc(u ? u.email : '')}"></div>
         <div class="field"><label>電話番号</label><input class="inp" id="u_tel" value="${esc(u ? u.tel || '' : '')}"></div>
+        <div class="field"><label>担当者コード</label><input class="inp" id="u_code" value="${esc(u ? u.ownerCode || '' : '')}" placeholder="例：S006"></div>
+        <div class="field"><label>担当部署</label><input class="inp" id="u_dept" value="${esc(u ? u.department || '' : '')}" placeholder="例：営業部"></div>
+        <div class="field"><label>内線番号</label><input class="inp" id="u_ext" value="${esc(u ? u.extension || '' : '')}" placeholder="例：1006"></div>
+        <div class="field"><label>所属会社</label><select class="inp" id="u_company">
+          <option value="">（未設定）</option>
+          ${(Store.db.companies || []).map(c => `<option value="${esc(c.id)}"${u && u.companyId === c.id ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>所属拠点</label><select class="inp" id="u_branch">
+          <option value="">（未設定）</option>
+          ${(Store.db.branches || []).map(b => `<option value="${b.id}"${u && u.branchId === b.id ? ' selected' : ''}>${esc((Store.db.companies.find(c => c.id === b.companyId) || {}).name || '')} / ${esc(b.name)}</option>`).join('')}</select></div>
         <div class="field"><label>所属組織 *</label><select class="inp" id="u_org"${Tenant.isSystemAdmin() ? '' : ' disabled'}>
           ${(Tenant.all()).map(o => `<option value="${esc(o.id)}"${Number(u ? (u.organizationId || 1) : Tenant.id()) === Number(o.id) ? ' selected' : ''}>${esc(o.organizationName)}（${esc(o.organizationCode)}）</option>`).join('')}</select></div>
         <div class="field"><label>ロール *</label><select class="inp" id="u_role">
@@ -802,11 +830,18 @@ const Actions = {
       const admins = Store.db.users.filter(x => x.id !== id && x.enabled && Role.canManageUsers(x) && Number(x.organizationId) === Number(u.organizationId));
       if (Role.canManageUsers(u) && u.enabled && (!enabled || !Role.canManageUsers({ role })) && !admins.length)
         return UI.toast('有効な管理者がいなくなるため変更できません', 'err');
-      Object.assign(u, { loginId, name, email: g('u_mail'), tel: g('u_tel'), role, enabled, organizationId: orgId, updatedAt: new Date().toISOString() });
+      Object.assign(u, {
+        loginId, name, email: g('u_mail'), tel: g('u_tel'), role, enabled, organizationId: orgId,
+        ownerCode: g('u_code').trim(), department: g('u_dept').trim(), extension: g('u_ext').trim(),
+        companyId: g('u_company') || '', branchId: g('u_branch') || '',
+        updatedAt: new Date().toISOString()
+      });
       UI.toast(`ユーザー ${loginId} を更新しました`, 'ok');
     } else {
       Store.db.users.push({
         id: uid(), loginId, name, email: g('u_mail'), tel: g('u_tel'), role, organizationId: orgId,
+        ownerCode: g('u_code').trim(), department: g('u_dept').trim(), extension: g('u_ext').trim(),
+        companyId: g('u_company') || '', branchId: g('u_branch') || '',
         forcePasswordChange: true, enabled: true,
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
       });
@@ -1006,6 +1041,24 @@ const Actions = {
   saveCompany() {
     UI.toast('発行元は「会社・拠点マスタ」で管理します', 'warn');
     App.go('companies');
+  },
+  /* 担当者変更（受注・発注・入荷・出荷 共通） — 変更は監査ログに記録する */
+  ownerForm(kind, id) {
+    const rec = Owner.record(kind, id);
+    if (!rec) return UI.toast('対象の伝票が見つかりません', 'err');
+    UI.modal(`${Owner.label(kind)}の変更`, `${Owner.docNo(kind, rec)} ／ 現在：${Owner.display(Owner.idOf(kind, rec))}`, `
+      ${Owner.pickerHtml('chg', kind, rec)}
+      <div class="note amber mt12">${ico('alert', 15)} 担当者を変更すると、監査ログに「担当者変更」（変更前 → 変更後）として記録されます。</div>`,
+      `<button class="btn" onclick="UI.closeModal()">キャンセル</button><button class="btn primary" onclick="Actions.saveOwner('${kind}','${id}')">${ico('check', 15)} 変更する</button>`);
+  },
+  saveOwner(kind, id) {
+    const rec = Owner.record(kind, id);
+    if (!rec) return;
+    const next = Owner.pick('chg');
+    if (next && !Owner.isCandidate(next)) return UI.toast('担当者は自組織のユーザーから選択してください', 'err');
+    const changed = Owner.assign(kind, rec, next);
+    Store.save(); UI.closeModal(); App.repaint();
+    UI.toast(changed ? '担当者を変更しました（監査ログに記録）' : '担当者は変更されていません', changed ? 'ok' : 'warn');
   },
   exportJSON() {
     const blob = new Blob([JSON.stringify(Store.db, null, 2)], { type: 'application/json' });

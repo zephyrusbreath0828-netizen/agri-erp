@@ -47,23 +47,23 @@ const SB = (() => {
   const TABLES = [
     /* 組織（テナント）— 業務データの最上位。RLS のキーになるため先頭で同期する */
     { arr: 'organizations',  t: 'organizations',        pk: 'id', cols: ['id','organization_code','organization_name','is_active','created_at','updated_at'] },
-    { arr: 'users',          t: 'users',                pk: 'id', cols: ['id','organization_id','login_id','name','email','tel','role','password_hash','force_password_change','enabled','is_system_admin','last_login_at','created_at','updated_at'] },
+    { arr: 'users',          t: 'users',                pk: 'id', cols: ['id','organization_id','login_id','name','email','tel','role','password_hash','force_password_change','enabled','is_system_admin','last_login_at','owner_code','department','extension','company_id','branch_id','created_at','updated_at'] },
     /* 発行元マスタ（会社 1:N 拠点）— 親→子の順で同期するため users の直後に配置 */
     { arr: 'companies',      t: 'companies',            pk: 'id', cols: ['id','organization_id','company_code','name','postal_code','address','tel','fax','email','invoice_number','logo_url','notes','is_active','visible_fields','created_at','updated_at'] },
     { arr: 'branches',       t: 'branches',             pk: 'id', cols: ['id','organization_id','company_id','branch_code','name','postal_code','address','tel','fax','email','manager_name','notes','is_active','visible_fields','created_at','updated_at'] },
-    { arr: 'docTemplates',   t: 'doc_templates',        pk: 'id', cols: ['id','organization_id','template_code','name','doc_kind','company_id','company_name','branch_name','branch1','branch2','address','tel','fax','email','invoice_number','manager','logo','is_default','is_active','notes','branch_mode','paper','watermark','footer','created_at','updated_at'], alias: { company_name: 'companyName' } },
+    { arr: 'docTemplates',   t: 'doc_templates',        pk: 'id', cols: ['id','organization_id','template_code','name','doc_kind','company_id','company_name','branch_name','branch1','branch2','address','tel','fax','email','invoice_number','manager','logo','is_default','is_active','notes','branch_mode','paper','watermark','footer','owner','created_at','updated_at'], alias: { company_name: 'companyName' } },
     { arr: 'suppliers',      t: 'suppliers',            pk: 'id', cols: ['id','organization_id','code','name','kana','tel','address','closing_day','payment_terms','lead_time','email','contact','active','notes','created_at','updated_at'] },
     { arr: 'customers',      t: 'customers',            pk: 'id', cols: ['id','organization_id','code','name','kana','tel','address','closing_day','payment_terms','email','contact','sales_rep_id','active','notes','created_at','updated_at'] },
     { arr: 'items',          t: 'items',                pk: 'id', cols: ['id','organization_id','kind','code','name','kana','category','unit','spec','sale_price','cost_price','tax_rate','reorder_point','reorder_qty','safety_stock','stock','location','jan_code','barcode','supplier_id','active','notes','created_at','updated_at'] },
-    { arr: 'orders',         t: 'orders',               pk: 'id', cols: ['id','organization_id','order_no','customer_id','customer_name','order_date','due_date','ship_date','status','subtotal','tax_amount','total_amount','remarks','company_id','branch1_id','branch2_id','sales_rep_id','created_by','created_at','updated_at'], alias: { tax_amount: 'tax', total_amount: 'total' } },
+    { arr: 'orders',         t: 'orders',               pk: 'id', cols: ['id','organization_id','order_no','customer_id','customer_name','order_date','due_date','ship_date','status','subtotal','tax_amount','total_amount','remarks','company_id','branch1_id','branch2_id','sales_rep_id','sales_user_id','created_by','created_at','updated_at'], alias: { tax_amount: 'tax', total_amount: 'total' } },
     { arr: 'orderLines',     t: 'order_lines',          pk: 'id', cols: ['id','organization_id','order_id','line_no','item_id','item_name','unit','quantity','unit_price','tax_rate','amount','shipped_qty','due_date','notes'] },
-    { arr: 'purchaseOrders', t: 'purchase_orders',      pk: 'id', cols: ['id','organization_id','po_no','supplier_id','supplier_name','order_date','expected_date','status','subtotal','tax_amount','total_amount','remarks','company_id','branch1_id','branch2_id','created_by','created_at','updated_at'], alias: { tax_amount: 'tax', total_amount: 'total' } },
+    { arr: 'purchaseOrders', t: 'purchase_orders',      pk: 'id', cols: ['id','organization_id','po_no','supplier_id','supplier_name','order_date','expected_date','status','subtotal','tax_amount','total_amount','remarks','company_id','branch1_id','branch2_id','purchase_user_id','created_by','created_at','updated_at'], alias: { tax_amount: 'tax', total_amount: 'total' } },
     { arr: 'poLines',        t: 'purchase_order_lines', pk: 'id', cols: ['id','organization_id','po_id','line_no','item_id','item_name','unit','quantity','unit_price','tax_rate','amount','received_qty','expected_date','notes'] },
-    { arr: 'receipts',       t: 'receipts',             pk: 'id', cols: ['id','organization_id','receipt_no','po_id','supplier_id','supplier_name','receipt_date','status','subtotal','tax_amount','total_amount','remarks','received_by','created_at'], alias: { tax_amount: 'tax', total_amount: 'total' } },
+    { arr: 'receipts',       t: 'receipts',             pk: 'id', cols: ['id','organization_id','receipt_no','po_id','supplier_id','supplier_name','receipt_date','status','subtotal','tax_amount','total_amount','remarks','received_by','receipt_user_id','created_at'], alias: { tax_amount: 'tax', total_amount: 'total' } },
     { arr: 'receiptLines',   t: 'receipt_lines',        pk: 'id', cols: ['id','organization_id','receipt_id','po_line_id','item_id','item_name','quantity','unit_cost','amount','lot_no','expiry','notes'] },
-    { arr: 'shipments',      t: 'shipments',            pk: 'id', cols: ['id','organization_id','shipment_no','order_id','order_no','customer_id','customer_name','ship_date','status','carrier','tracking_no','ship_to_name','ship_to_addr','remarks','confirmed_at','created_by','created_at','updated_at'] },
+    { arr: 'shipments',      t: 'shipments',            pk: 'id', cols: ['id','organization_id','shipment_no','order_id','order_no','customer_id','customer_name','ship_date','status','carrier','tracking_no','ship_to_name','ship_to_addr','remarks','confirmed_at','shipment_user_id','created_by','created_at','updated_at'] },
     { arr: 'shipmentLines',  t: 'shipment_lines',       pk: 'id', cols: ['id','organization_id','shipment_id','order_line_id','item_id','item_name','unit','quantity','lot_no','notes'] },
-    { arr: 'movements',      t: 'stock_movements',      pk: 'id', cols: ['id','organization_id','moved_at','move_date','move_type','item_id','item_name','quantity','balance_after','ref_table','ref_id','ref_no','operator_id','notes','created_at'] },
+    { arr: 'movements',      t: 'stock_movements',      pk: 'id', cols: ['id','organization_id','moved_at','move_date','move_type','item_id','item_name','quantity','balance_after','ref_table','ref_id','ref_no','operator_id','owner_id','notes','created_at'] },
     { arr: 'sequences',      t: 'number_sequences',     pk: 'seq_key', cols: ['seq_key','organization_id','prefix','seq_date','last_number','updated_at'], alias: { seq_key: 'key', seq_date: 'date', last_number: 'last' } },
     { arr: 'documents',      t: 'documents',            pk: 'id', cols: ['id','organization_id','doc_kind','doc_no','shipment_id','shipment_no','order_id','po_id','receipt_id','customer_id','customer_name','issued_at','issued_by','printed_count','company_id','branch1_id','branch2_id','template_id','payload'] }
   ];
@@ -71,7 +71,7 @@ const SB = (() => {
   /* ---------- 監査ログ（操作ログ） ----------
      既存テーブル群の差分同期には含めない専用テーブル（sql/03_add_audit_logs.sql で新設）。
      テーブル未作成の環境でも他の同期・起動へ影響しないよう、読み書きは個別に try/catch で保護する。 */
-  const AUDIT_TB = { arr: 'auditLogs', t: 'audit_logs', pk: 'id', cols: ['id','organization_id','action','actor_login_id','actor_name','target_login_id','target_name','ip_address','user_agent','created_at'] };
+  const AUDIT_TB = { arr: 'auditLogs', t: 'audit_logs', pk: 'id', cols: ['id','organization_id','action','actor_login_id','actor_name','target_login_id','target_name','detail','doc_kind','doc_no','ip_address','user_agent','created_at'] };
 
   const toSnake = s => String(s).replace(/([A-Z])/g, '_$1').toLowerCase();
   const toCamel = s => String(s).replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase());
@@ -694,6 +694,17 @@ const SEED_USERS = [
   ['usr010', 'afarm',    '青木 大地', 'afarm@agri-erp.local',    '090-2222-3333', 'org_admin', TEMP_HASH_OFFICE, 2, false]
 ];
 
+/* 担当者管理（ver 3.7）: ユーザーに担当者コード・部署・内線・所属会社/拠点を付与する。
+   担当者コードは担当者候補プルダウンの並び順と検索に使用する。 */
+const SEED_USER_PROFILE = {
+  usr001: { ownerCode: 'S001', department: '管理部',     extension: '1001', companyId: 'co001', branchId: 'br001' },
+  usr002: { ownerCode: 'S002', department: '事務部',     extension: '1002', companyId: 'co001', branchId: 'br001' },
+  usr003: { ownerCode: 'S003', department: '物流部',     extension: '1003', companyId: 'co001', branchId: 'br001' },
+  usr004: { ownerCode: 'S004', department: '営業部',     extension: '1004', companyId: 'co001', branchId: 'br001' },
+  usr005: { ownerCode: 'S005', department: '営業部',     extension: '1005', companyId: 'co001', branchId: 'br001' },
+  usr010: { ownerCode: 'A001', department: '営農部',     extension: '2001', companyId: 'co010', branchId: 'br010' }
+};
+
 /* ------------------------------ 会社・拠点・帳票テンプレート（v3 で新設） ------------------------------
    会社マスタは複数登録できる（グループ会社・拠点対応）。既存の settings.company（単一会社設定）は
    Store.migrateIssuerMasters() が companies へ自動移行する。 */
@@ -759,11 +770,11 @@ function buildSeed() {
   SEED_ORGANIZATIONS.forEach(a => db.organizations.push({
     id: a[0], organizationCode: a[1], organizationName: a[2], isActive: true, createdAt: nowIso, updatedAt: nowIso
   }));
-  SEED_USERS.forEach(a => db.users.push({
+  SEED_USERS.forEach(a => db.users.push(Object.assign({
     id: a[0], loginId: a[1], name: a[2], email: a[3], tel: a[4], role: a[5],
     passwordHash: a[6], forcePasswordChange: true, enabled: true, createdAt: nowIso, updatedAt: nowIso,
     organizationId: a[7] || DEFAULT_ORG_ID, isSystemAdmin: !!a[8]
-  }));
+  }, { ownerCode: '', department: '', extension: '', companyId: '', branchId: '' }, SEED_USER_PROFILE[a[0]] || {})));
 
   /* ---- 会社マスタ・拠点マスタ・帳票テンプレート ---- */
   SEED_COMPANIES.forEach(a => db.companies.push({
@@ -793,7 +804,7 @@ function buildSeed() {
       id: uid(), movedAt: addDays(new Date(), dayOffset).toISOString(),
       moveDate: todayStr(addDays(new Date(), dayOffset)), moveType: type, itemId, itemName: it.name,
       quantity: qty, balanceAfter: it.stock, refTable, refId, refNo,
-      operatorId: op || 'usr001', notes: ''
+      operatorId: op || 'usr001', ownerId: op || 'usr001', notes: ''
     });
   };
 
@@ -817,7 +828,7 @@ function buildSeed() {
     db.receipts.push({
       id: rid, receiptNo: rno, poId: null, supplierId: supId, supplierName: db.suppliers.find(s => s.id === supId).name,
       receiptDate: todayStr(addDays(new Date(), off)), status: 'confirmed', subtotal: sub, tax: Math.round(sub * .08), total: sub + Math.round(sub * .08),
-      remarks: '', receivedBy: 'usr002', createdAt: new Date().toISOString()
+      remarks: '', receivedBy: 'usr002', receiptUserId: hi % 2 ? 'usr002' : 'usr004', createdAt: new Date().toISOString()
     });
     rl.forEach(l => {
       db.receiptLines.push(l);
@@ -837,9 +848,10 @@ function buildSeed() {
         dueDate: todayStr(addDays(new Date(), dueOff)), notes: '' };
     });
     const tax = Math.round(sub * .08);
+    const repId = (db.customers.find(c => c.id === custId) || {}).salesRepId || null;
     db.orders.push({
       id: oid, orderNo: ono, customerId: custId, customerName: db.customers.find(c => c.id === custId).name,
-      salesRepId: (db.customers.find(c => c.id === custId) || {}).salesRepId || null,
+      salesRepId: repId, salesUserId: repId,
       orderDate: todayStr(addDays(new Date(), orderOff)), dueDate: todayStr(addDays(new Date(), dueOff)),
       shipDate: todayStr(addDays(new Date(), dueOff)), status: status || 'received',
       subtotal: sub, tax, total: sub + tax, remarks: '', createdBy: 'usr002', createdAt: new Date().toISOString()
@@ -877,7 +889,7 @@ function buildSeed() {
       trackingNo: status === 'confirmed' ? 'TRK' + (100000 + idx * 37) : '',
       shipToName: o.customerName, shipToAddr: db.customers.find(c => c.id === o.customerId).address,
       remarks: '', confirmedAt: status === 'confirmed' ? addDays(new Date(), shipOff).toISOString() : null,
-      createdBy: 'usr003', createdAt: new Date().toISOString()
+      createdBy: 'usr003', shipmentUserId: 'usr003', createdAt: new Date().toISOString()
     });
     lines.forEach(l => db.shipmentLines.push(l));
     return sid;
@@ -912,6 +924,7 @@ function buildSeed() {
       supplierId: supId, supplierName: db.suppliers.find(s => s.id === supId).name,
       orderDate: todayStr(addDays(new Date(), orderOff)), expectedDate: todayStr(addDays(new Date(), expOff)),
       status: status || 'ordered', subtotal: sub, tax, total: sub + tax, remarks: '', createdBy: 'usr002',
+      purchaseUserId: idx % 2 ? 'usr004' : 'usr002',
       createdAt: new Date().toISOString()
     });
     pls.forEach(l => db.poLines.push(l));
@@ -982,6 +995,7 @@ function seedAssignOrganizations(db) {
     id: 'ord010', orderNo: 'AF-20261030-0001', customerId: 'cus010', customerName: 'Ａファーム取引先商事',
     orderDate: TODAY, dueDate: TODAY, shipDate: TODAY, status: 'received', subtotal: 8400, tax: 672, total: 9072,
     remarks: 'A-FARM 組織のサンプル受注', companyId: 'co010', branch1Id: 'br010', branch2Id: null,
+    salesUserId: 'usr010', purchaseUserId: null, receiptUserId: null, shipmentUserId: null,
     organizationId: org2, createdBy: 'usr010', createdAt: now, updatedAt: now
   });
   db.orderLines.push({
@@ -993,7 +1007,7 @@ function seedAssignOrganizations(db) {
     customerId: 'cus010', customerName: 'Ａファーム取引先商事', shipDate: TODAY, status: 'confirmed',
     carrier: '佐川急便', trackingNo: '', shipToName: 'Ａファーム取引先商事', shipToAddr: '徳島県徳島市中央9-9-9',
     remarks: '', companyId: 'co010', branch1Id: 'br010', branch2Id: null, organizationId: org2,
-    createdBy: 'usr010', createdAt: now, updatedAt: now
+    shipmentUserId: 'usr010', createdBy: 'usr010', createdAt: now, updatedAt: now
   });
   db.shipmentLines.push({
     id: 'shl010', shipmentId: 'shp010', orderLineId: 'odl010', itemId: 'itm010', itemName: 'Ａファーム トマト 5kg',
@@ -1069,6 +1083,7 @@ const Store = {
     if (!t.paper) t.paper = 'portrait';
     if (t.watermark === undefined) t.watermark = true;
     if (t.footer === undefined) t.footer = true;
+    if (t.owner === undefined) t.owner = true;   /* ver 3.7: 帳票への担当者表示（既定 ON） */
   });
     const now = new Date().toISOString();
     if (!db.companies.length) {
@@ -1141,7 +1156,8 @@ const Store = {
       id: uid(), movedAt: new Date().toISOString(), moveDate: TODAY, moveType,
       itemId, itemName: it.name, quantity: qty, balanceAfter: it.stock,
       refTable: ref.table || '', refId: ref.id || '', refNo: ref.no || '',
-      operatorId: Auth.user ? Auth.user.id : 'system', notes: ref.notes || ''
+      operatorId: Auth.user ? Auth.user.id : 'system',
+      ownerId: ref.ownerId || (Auth.user ? Auth.user.id : null), notes: ref.notes || ''
     };
     this.db.movements.unshift(mv);
     return mv;
@@ -1408,6 +1424,8 @@ const MENU = [
   ]},
   { group: '受注管理', items: [
     { id: 'orders',     label: '受注一覧',    sub: '受注残・納期管理',    icon: 'file',  roles: ['system_admin','org_admin','manager','user'] },
+    /* 担当者別実績（ver 3.7）: 受注・発注・入荷・出荷を担当者単位で集計 */
+    { id: 'ownerReport', label: '担当者別実績', sub: '担当者ごとの受注・発注・入荷・出荷実績', icon: 'trend', roles: ['system_admin','org_admin','manager','user'] },
     { id: 'customers',  label: '得意先マスタ', sub: '取引先の登録',       icon: 'users', roles: ['system_admin','org_admin','manager'] }
   ]},
   { group: '発注管理', items: [
@@ -1597,24 +1615,50 @@ const Security = {
    Store.db.auditLogs（既存構造）へ記録する。Supabase接続時は専用テーブル audit_logs
    （sql/03_add_audit_logs.sql）にも保存する（失敗しても他の処理には影響しない）。
    仮パスワード等の機密情報は一切記録しない。 */
-const AUDIT_LABEL = { password_reset: 'パスワードリセット', emergency_login: '緊急管理者ログイン' };
+const AUDIT_LABEL = {
+  password_reset: 'パスワードリセット', emergency_login: '緊急管理者ログイン',
+  owner_change: '担当者変更', role_change: '権限変更'
+};
 const Audit = {
-  /* 記録項目: 実行者（actorLoginId / actorName）・対象ユーザー（targetLoginId / targetName）・実行日時（createdAt）・IPアドレス（ipAddress） */
-  add(action, target, ip) {
+  /* 記録項目: 実行者（actorLoginId / actorName）・対象（targetLoginId / targetName）・
+     内容（detail）・対象伝票（docKind / docNo）・実行日時（createdAt）・IPアドレス（ipAddress） */
+  log(o) {
     try {
       const a = (typeof Auth !== 'undefined' && Auth.user) || {};
+      const x = o || {};
       const row = {
-        id: uid(), action,
+        id: uid(), action: x.action || 'unknown',
         actorLoginId: a.loginId || '', actorName: a.name || '',
-        targetLoginId: (target && target.loginId) || '', targetName: (target && target.name) || '',
-        ipAddress: ip || null, userAgent: String(navigator.userAgent || '').slice(0, 200),
+        targetLoginId: x.targetLoginId || '', targetName: x.targetName || '',
+        detail: x.detail || '', docKind: x.docKind || '', docNo: x.docNo || '',
+        ipAddress: x.ip || null, userAgent: String(navigator.userAgent || '').slice(0, 200),
+        organizationId: (typeof Tenant !== 'undefined') ? Tenant.id() : 1,
         createdAt: new Date().toISOString()
       };
       Store.db.auditLogs = Store.db.auditLogs || [];
-      Store.db.auditLogs.push(row);
+      Store.db.auditLogs.unshift(row);
       if (typeof SB !== 'undefined' && SB.ready && SB.pushAudit) SB.pushAudit(row);
       return row;
     } catch (e) { console.warn('audit log failed', e); return null; }
+  },
+  add(action, target, ip) {
+    return this.log({
+      action, ip,
+      targetLoginId: (target && target.loginId) || '', targetName: (target && target.name) || ''
+    });
+  },
+  /* 担当者変更（ver 3.7）: 「田中 健二 → 山田 太郎」の履歴を残す */
+  ownerChange(kind, rec, fromId, toId) {
+    const d = (typeof OWNER_KIND !== 'undefined' && OWNER_KIND[kind]) || { label: '担当者', noKey: 'id' };
+    const no = (rec && (rec[d.noKey] || rec.id)) || '';
+    const from = fromId ? (typeof Owner !== 'undefined' ? Owner.name(fromId) : fromId) : '未設定';
+    const to = toId ? (typeof Owner !== 'undefined' ? Owner.name(toId) : toId) : '未設定';
+    return this.log({
+      action: 'owner_change',
+      targetLoginId: fromId || '', targetName: from || '',
+      detail: `${d.label}：${from} → ${to}`,
+      docKind: kind, docNo: no
+    });
   },
   /* グローバルIPをベストエフォートで取得（取得できない場合は null → 画面表示は「—」） */
   async fetchIp() {
@@ -2037,6 +2081,8 @@ Views.dashboard = () => {
       ${kpiCard({ label: '在庫評価額', icon: 'yen', bg: 'var(--green-50)', fg: 'var(--green-700)', value: money(Math.round(totalStockValue)), foot: `<span class="dot" style="background:var(--green-500)"></span>累計出荷 ${monthShip} 件` })}
     </div>
 
+    ${(typeof Owner !== 'undefined') ? Owner.rankingHtml() : ''}
+
     <div class="grid g-3-2">
       <div class="card">
         <div class="card-h">
@@ -2215,10 +2261,13 @@ Views.inventory = () => {
 Views.setInv = t => { invTab = t; App.repaint(); };
 
 /* ============================== 入出庫履歴 ============================== */
-let mvFilter = 'all', mvQ = '';
+let mvFilter = 'all', mvQ = '', mvOwner = '';
+/* 在庫移動の担当者（ownerId。旧データは operatorId で読み替える） */
+const mvOwnerOf = m => m.ownerId || m.operatorId || '';
 Views.movements = () => {
   const list = Store.db.movements
     .filter(m => mvFilter === 'all' || m.moveType === mvFilter)
+    .filter(m => !mvOwner || (mvOwner === '__none' ? !mvOwnerOf(m) : mvOwnerOf(m) === mvOwner))
     .filter(m => !mvQ || (m.itemName + m.refNo).toLowerCase().includes(mvQ.toLowerCase()))
     .slice(0, 300);
   const inQ = Store.db.movements.filter(m => m.moveType === 'receipt').reduce((a, m) => a + m.quantity, 0);
@@ -2238,13 +2287,16 @@ Views.movements = () => {
             ${[['all', 'すべて'], ['receipt', '入荷'], ['shipment', '出荷'], ['adjustment', '調整'], ['loss', 'ロス']].map(([k, l]) =>
               `<button class="tab ${mvFilter === k ? 'on' : ''}" onclick="mvFilter='${k}';App.repaint()">${l}</button>`).join('')}
           </div>
-          <div class="sp" style="position:relative;max-width:260px;flex:1">
-            <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink-400)">${ico('search', 16)}</span>
-            <input class="inp" style="padding-left:34px" placeholder="品名・伝票番号" value="${esc(mvQ)}" oninput="mvQ=this.value;App.repaint()">
+          <div class="sp hstack" style="gap:8px;justify-content:flex-end">
+            ${Owner.filterHtml('mvOwner', 'orders', mvOwner, 'mvOwner=this.value;App.repaint()')}
+            <div style="position:relative;max-width:240px;flex:1">
+              <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink-400)">${ico('search', 16)}</span>
+              <input class="inp" style="padding-left:34px" placeholder="品名・伝票番号" value="${esc(mvQ)}" oninput="mvQ=this.value;App.repaint()">
+            </div>
           </div>
         </div>
         <div class="table-wrap"><table class="tb">
-          <thead><tr><th>日時</th><th>区分</th><th>品名</th><th class="right">増減</th><th class="right">残高</th><th>参照伝票</th><th>担当</th></tr></thead>
+          <thead><tr><th>日時</th><th>区分</th><th>品名</th><th class="right">増減</th><th class="right">残高</th><th>参照伝票</th><th>担当</th><th>操作者</th></tr></thead>
           <tbody>${list.length ? list.map(m => `<tr>
             <td class="nowrap sm">${dtJP(m.movedAt)}</td>
             <td><span class="badge ${moveBadge(m.moveType)}">${moveLabel(m.moveType)}</span></td>
@@ -2252,8 +2304,9 @@ Views.movements = () => {
             <td class="num ${m.quantity > 0 ? '' : ''}" style="color:${m.quantity > 0 ? 'var(--green-700)' : 'var(--rose-600)'};font-weight:700">${m.quantity > 0 ? '+' : ''}${dec(m.quantity)}</td>
             <td class="num">${dec(m.balanceAfter)}</td>
             <td class="mono">${esc(m.refNo || '—')}</td>
+            <td class="sm strong">${esc(Owner.name(mvOwnerOf(m)) || '未設定')}</td>
             <td class="sm muted">${esc((Store.db.users.find(u => u.id === m.operatorId) || {}).name || '—')}</td></tr>`).join('')
-            : `<tr><td colspan="7">${emptyBox('履歴がありません', '条件を変更してください')}</td></tr>`}</tbody>
+            : `<tr><td colspan="8">${emptyBox('履歴がありません', '条件を変更してください')}</td></tr>`}</tbody>
         </table></div>
       </div>
     </div>
@@ -2307,15 +2360,24 @@ Views.materials = () => masterTable('material');
    ========================================================================== */
 
 /* ============================== 受注管理 ============================== */
-let ordTab = 'list', ordQ = '', ordStat = 'all';
+let ordTab = 'list', ordQ = '', ordStat = 'all', ordOwner = '', ordSort = 'date';
 Views.orders = () => {
   const all = Store.db.orders.slice().sort((a, b) => b.orderDate.localeCompare(a.orderDate) || b.orderNo.localeCompare(a.orderNo));
   const backlog = Store.orderBacklog();
   const overdue = backlog.filter(r => r.overdue);
-  const tabList = ordTab === 'backlog' ? all.filter(o => Store.orderRemaining(o) > 0) : all;
-  const list = tabList
+  /* 担当者単位の閲覧制御（一般ユーザーかつ設定が「自分の担当のみ」のとき） */
+  const scoped = Owner.visible('orders', all);
+  const tabList = (ordTab === 'backlog' ? scoped.filter(o => Store.orderRemaining(o) > 0) : scoped)
     .filter(o => ordStat === 'all' || o.status === ordStat)
+    .filter(o => Owner.match('orders', o, ordOwner))
     .filter(o => !ordQ || (o.orderNo + o.customerName).toLowerCase().includes(ordQ.toLowerCase()));
+  const ordSorters = {
+    date:   (a, b) => b.orderDate.localeCompare(a.orderDate) || b.orderNo.localeCompare(a.orderNo),
+    owner:  (a, b) => Owner.name(Owner.idOf('orders', a)).localeCompare(Owner.name(Owner.idOf('orders', b)), 'ja') || b.orderDate.localeCompare(a.orderDate),
+    amount: (a, b) => Number(b.total) - Number(a.total),
+    due:    (a, b) => String(a.dueDate).localeCompare(String(b.dueDate))
+  };
+  const list = tabList.slice().sort(ordSorters[ordSort] || ordSorters.date);
 
   const rows = list.map(o => {
     const rem = Store.orderRemaining(o);
@@ -2323,6 +2385,7 @@ Views.orders = () => {
     return `<tr class="${late ? 'row-danger' : ''}">
       <td class="mono">${esc(o.orderNo)}<div class="tiny muted">${dJP(o.orderDate)}</div></td>
       <td class="strong">${esc(o.customerName)}</td>
+      <td class="sm">${Owner.name(Owner.idOf('orders', o)) || '<span class="muted">未設定</span>'}</td>
       <td class="nowrap">${dJP(o.dueDate)}${late ? ' <span class="badge rose">超過</span>' : rem > 0 ? `<div class="tiny muted">${relDay(o.dueDate)}</div>` : ''}</td>
       <td class="num">${money(o.total)}</td>
       <td class="num">${rem > 0 ? `<span style="color:var(--rose-600);font-weight:700">${dec(rem)}</span>` : '<span class="badge green">完納</span>'}</td>
@@ -2362,11 +2425,18 @@ Views.orders = () => {
             ${Object.entries(STATUS).filter(([k]) => ['received','partial','shipped','completed','cancelled'].includes(k))
               .map(([k, v]) => `<option value="${k}"${ordStat === k ? ' selected' : ''}>${v[0]}</option>`).join('')}
           </select>
+          ${Owner.filterHtml('ordOwner', 'orders', ordOwner, 'ordOwner=this.value;App.repaint()')}
+          <select class="inp" style="max-width:160px" onchange="ordSort=this.value;App.repaint()">
+            <option value="date"${ordSort === 'date' ? ' selected' : ''}>並び替え：受注日</option>
+            <option value="due"${ordSort === 'due' ? ' selected' : ''}>並び替え：納期</option>
+            <option value="owner"${ordSort === 'owner' ? ' selected' : ''}>並び替え：担当営業</option>
+            <option value="amount"${ordSort === 'amount' ? ' selected' : ''}>並び替え：金額</option>
+          </select>
           <div class="sp"><button class="btn sm primary" onclick="Actions.orderForm()">${ico('plus', 14)} 受注登録</button></div>
         </div>
         <div class="table-wrap"><table class="tb">
-          <thead><tr><th>受注番号</th><th>得意先</th><th>納期</th><th class="right">金額</th><th class="right">受注残</th><th>状態</th><th></th></tr></thead>
-          <tbody>${rows || `<tr><td colspan="7">${emptyBox('受注がありません', '新規受注を登録してください')}</td></tr>`}</tbody>
+          <thead><tr><th>受注番号</th><th>得意先</th><th>担当営業</th><th>納期</th><th class="right">金額</th><th class="right">受注残</th><th>状態</th><th></th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="8">${emptyBox('受注がありません', '新規受注を登録してください')}</td></tr>`}</tbody>
         </table></div>
       </div>
     </div>
@@ -2423,12 +2493,14 @@ Views.customers = () => {
 };
 
 /* ============================== 発注管理 ============================== */
-let poTab = 'list', poQ = '';
+let poTab = 'list', poQ = '', poOwner = '';
 Views.purchase = () => {
-  const all = Store.db.purchaseOrders.slice().sort((a, b) => b.orderDate.localeCompare(a.orderDate));
+  const scoped = Owner.visible('purchaseOrders', Store.db.purchaseOrders);
+  const all = scoped.slice().sort((a, b) => b.orderDate.localeCompare(a.orderDate));
   const backlog = Store.poBacklog();
   const overdue = backlog.filter(r => r.overdue);
   const list = (poTab === 'backlog' ? all.filter(p => Store.poRemaining(p) > 0) : all)
+    .filter(p => Owner.match('purchaseOrders', p, poOwner))
     .filter(p => !poQ || (p.poNo + p.supplierName).toLowerCase().includes(poQ.toLowerCase()));
 
   return `<div class="vstack" style="gap:16px">
@@ -2452,16 +2524,18 @@ Views.purchase = () => {
             <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink-400)">${ico('search', 16)}</span>
             <input class="inp" style="padding-left:34px" placeholder="発注番号・仕入先" value="${esc(poQ)}" oninput="poQ=this.value;App.repaint()">
           </div>
+          ${Owner.filterHtml('poOwner', 'purchaseOrders', poOwner, 'poOwner=this.value;App.repaint()')}
           <div class="sp"><button class="btn sm primary" onclick="Actions.newPOFor('')">${ico('plus', 14)} 発注登録</button></div>
         </div>
         <div class="table-wrap"><table class="tb">
-          <thead><tr><th>発注番号</th><th>仕入先</th><th>発注日</th><th>入荷予定</th><th class="right">金額</th><th class="right">発注残</th><th>状態</th><th></th></tr></thead>
+          <thead><tr><th>発注番号</th><th>仕入先</th><th>発注担当</th><th>発注日</th><th>入荷予定</th><th class="right">金額</th><th class="right">発注残</th><th>状態</th><th></th></tr></thead>
           <tbody>${list.length ? list.map(p => {
             const rem = Store.poRemaining(p);
             const late = p.expectedDate < TODAY && rem > 0;
             return `<tr class="${late ? 'row-warn' : ''}">
               <td class="mono">${esc(p.poNo)}</td>
               <td class="strong">${esc(p.supplierName)}</td>
+              <td class="sm">${Owner.name(Owner.idOf('purchaseOrders', p)) || '<span class="muted">未設定</span>'}</td>
               <td class="sm">${dJP(p.orderDate)}</td>
               <td class="nowrap">${dJP(p.expectedDate)}${late ? '<div><span class="badge amber">入荷遅延</span></div>' : rem > 0 ? `<div class="tiny muted">${relDay(p.expectedDate)}</div>` : ''}</td>
               <td class="num">${money(p.total)}</td>
@@ -2471,7 +2545,7 @@ Views.purchase = () => {
                 <button class="btn xs" onclick="Actions.poDetail('${p.id}')">詳細</button>
                 ${rem > 0 ? `<button class="btn xs primary" onclick="Actions.receiveForm('${p.id}')">入荷</button>` : ''}
               </div></td></tr>`;
-          }).join('') : `<tr><td colspan="8">${emptyBox('発注がありません', '発注点割れの品目から発注できます')}</td></tr>`}</tbody>
+          }).join('') : `<tr><td colspan="9">${emptyBox('発注がありません', '発注点割れの品目から発注できます')}</td></tr>`}</tbody>
         </table></div>
       </div>
     </div>
@@ -2497,8 +2571,10 @@ Views.purchase = () => {
 };
 
 /* ============================== 入荷処理 ============================== */
+let rcOwner = '';
 Views.receipts = () => {
-  const list = Store.db.receipts.slice().sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
+  const scoped = Owner.visible('receipts', Store.db.receipts);
+  const list = scoped.filter(r => Owner.match('receipts', r, rcOwner)).slice().sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
   const todayIn = list.filter(r => r.receiptDate === TODAY);
   const monthQty = Store.db.movements.filter(m => m.moveType === 'receipt' && m.moveDate.slice(0, 7) === TODAY.slice(0, 7))
     .reduce((a, m) => a + m.quantity, 0);
@@ -2511,20 +2587,24 @@ Views.receipts = () => {
     </div>
     <div class="note green">${ico('check', 15)} <b>入荷処理</b>を確定すると、対象商品・資材の現在庫に自動で加算され、入出庫履歴に記録されます。</div>
     <div class="card">
-      <div class="card-h"><h2>${ico('inbox', 16)} 入荷履歴</h2>
-        <div class="sp"><button class="btn sm primary" onclick="Actions.receiveForm('')">${ico('plus', 14)} 入荷登録</button></div></div>
+      <div class="card-h"><h2>${ico('inbox', 16)} 入荷履歴</h2><span class="sub">${esc(Owner.scopeLabel())}</span>
+        <div class="sp hstack" style="gap:8px">
+          ${Owner.filterHtml('rcOwner', 'receipts', rcOwner, 'rcOwner=this.value;App.repaint()')}
+          <button class="btn sm primary" onclick="Actions.receiveForm('')">${ico('plus', 14)} 入荷登録</button>
+        </div></div>
       <div class="card-b tight"><div class="table-wrap"><table class="tb">
-        <thead><tr><th>入荷番号</th><th>入荷日</th><th>仕入先</th><th>発注番号</th><th class="right">明細</th><th class="right">金額</th><th>状態</th><th></th></tr></thead>
+        <thead><tr><th>入荷番号</th><th>入荷日</th><th>仕入先</th><th>受入担当</th><th>発注番号</th><th class="right">明細</th><th class="right">金額</th><th>状態</th><th></th></tr></thead>
         <tbody>${list.length ? list.map(r => `<tr>
           <td class="mono">${esc(r.receiptNo)}</td>
           <td class="sm">${dJP(r.receiptDate)}</td>
           <td class="strong">${esc(r.supplierName)}</td>
+          <td class="sm">${Owner.name(Owner.idOf('receipts', r)) || '<span class="muted">未設定</span>'}</td>
           <td class="mono">${esc((Store.db.purchaseOrders.find(p => p.id === r.poId) || {}).poNo || '直接入荷')}</td>
           <td class="num">${Store.receiptLines(r.id).length}</td>
           <td class="num">${money(r.total)}</td>
           <td><span class="badge green">入荷確定</span></td>
           <td class="right"><button class="btn xs" onclick="Actions.receiptDetail('${r.id}')">明細</button></td></tr>`).join('')
-          : `<tr><td colspan="8">${emptyBox('入荷履歴がありません', '発注一覧から入荷処理を実行できます')}</td></tr>`}</tbody>
+          : `<tr><td colspan="9">${emptyBox('入荷履歴がありません', '発注一覧から入荷処理を実行できます')}</td></tr>`}</tbody>
       </table></div></div>
     </div>
   </div>`;
@@ -2634,6 +2714,7 @@ const shipFilterDefault = () => {
     to: TODAY,
     customerId: '',
     salesRepId: '',
+    ownerId: '',
     status: SHIP_STATE_ALL,
     q: ''
   };
@@ -2661,6 +2742,7 @@ const shipFiltered = () => {
     if (f.to && s.shipDate > f.to) return false;
     if (f.customerId && s.customerId !== f.customerId) return false;
     if (f.salesRepId && Store.shipmentRepId(s) !== f.salesRepId) return false;
+    if (!Owner.match('shipments', s, f.ownerId)) return false;
     if (f.status !== SHIP_STATE_ALL && s.status !== f.status) return false;
     if (q && !(String(s.shipmentNo || '') + String(s.customerName || '') + String(s.orderNo || '')).toLowerCase().includes(q)) return false;
     return true;
@@ -2671,9 +2753,9 @@ const shipFiltered = () => {
 const shipExportCsv = () => {
   const list = shipFiltered();
   if (!list.length) return UI.toast('出力できる出荷データがありません', 'warn');
-  const head = ['出荷日', '出荷番号', '得意先', '営業担当者', '受注番号', '数量', '金額(税抜)', '運送会社', '追跡番号', '出荷状態'];
+  const head = ['出荷日', '出荷番号', '得意先', '営業担当者', '出荷担当', '受注番号', '数量', '金額(税抜)', '運送会社', '追跡番号', '出荷状態'];
   const rows = list.map(s => [
-    s.shipDate, s.shipmentNo, s.customerName, Store.salesRepName(Store.shipmentRepId(s)) || '—', s.orderNo || '',
+    s.shipDate, s.shipmentNo, s.customerName, Store.salesRepName(Store.shipmentRepId(s)) || '—', Owner.name(Owner.idOf('shipments', s)) || '未設定', s.orderNo || '',
     Store.shipLines(s.id).reduce((a, l) => a + l.quantity, 0), Math.round(Store.shipmentAmount(s)),
     s.carrier || '', s.trackingNo || '', (SHIP_STATE[s.status] || [s.status, ''])[0]
   ]);
@@ -2738,6 +2820,9 @@ Views.shipHistory = () => {
               ${reps.map(u => `<option value="${esc(u.id)}"${repSel === u.id ? ' selected' : ''}>${esc(u.name)}${Role.label(u) ? '（' + Role.label(u) + '）' : ''}</option>`).join('')}
             </select>
           </div>
+          <div class="field"><label>出荷担当</label>
+            ${Owner.filterHtml('shOwner', 'shipments', f.ownerId, "shipSet('ownerId', this.value)")}
+          </div>
           <div class="field"><label>出荷状態</label>
             <select class="inp" onchange="shipSet('status', this.value)">
               <option value="${SHIP_STATE_ALL}"${f.status === SHIP_STATE_ALL ? ' selected' : ''}>すべての状態</option>
@@ -2761,6 +2846,7 @@ Views.shipHistory = () => {
           ${condChip('期間', f.from || f.to ? `${f.from || '指定なし'} 〜 ${f.to || '指定なし'}` : '', "shipSet('from','');shipSet('to','')")}
           ${condChip('得意先', (cs.find(c => c.id === custSel) || {}).name || '', "shipSet('customerId','')")}
           ${condChip('営業担当者', Store.salesRepName(repSel), "shipSet('salesRepId','')")}
+          ${condChip('出荷担当', f.ownerId === '__none' ? '（未設定）' : Owner.name(f.ownerId), "shipSet('ownerId','')")}
           ${condChip('出荷状態', f.status === SHIP_STATE_ALL ? '' : (SHIP_STATE[f.status] || [f.status])[0], `shipSet('status','${SHIP_STATE_ALL}')`)}
           ${condChip('キーワード', f.q, "shipSet('q','')")}
           <span class="sp tiny muted">該当 <b>${num(list.length)}</b> 件</span>
@@ -2772,7 +2858,7 @@ Views.shipHistory = () => {
       <div class="card-h"><h2>${ico('history', 16)} 出荷検索結果</h2><span class="sub">出荷日の新しい順</span>
         <div class="sp"><span class="badge gray">${num(list.length)} 件</span></div></div>
       <div class="card-b tight"><div class="table-wrap"><table class="tb">
-        <thead><tr><th>出荷日</th><th>出荷番号</th><th>得意先</th><th>営業担当者</th><th>受注番号</th><th class="right">数量</th><th class="right">金額(税抜)</th><th>運送会社</th><th>出荷状態</th><th></th></tr></thead>
+        <thead><tr><th>出荷日</th><th>出荷番号</th><th>得意先</th><th>営業担当者</th><th>出荷担当</th><th>受注番号</th><th class="right">数量</th><th class="right">金額(税抜)</th><th>運送会社</th><th>出荷状態</th><th></th></tr></thead>
         <tbody>${list.length ? list.map(s => {
           const st = SHIP_STATE[s.status] || [s.status, 'gray'];
           const rep = Store.salesRepName(Store.shipmentRepId(s));
@@ -2781,6 +2867,7 @@ Views.shipHistory = () => {
             <td class="mono">${esc(s.shipmentNo)}</td>
             <td class="strong">${esc(s.customerName)}</td>
             <td class="sm">${rep ? esc(rep) : '<span class="muted">—</span>'}</td>
+            <td class="sm">${Owner.name(Owner.idOf('shipments', s)) || '<span class="muted">未設定</span>'}</td>
             <td class="mono">${esc(s.orderNo || '—')}</td>
             <td class="num">${num(Store.shipLines(s.id).reduce((a, l) => a + l.quantity, 0))}</td>
             <td class="num">${money(Math.round(Store.shipmentAmount(s)))}</td>
@@ -2793,9 +2880,9 @@ Views.shipHistory = () => {
                 : s.status === 'instructed' ? `<button class="btn xs primary" onclick="Actions.confirmShipment('${s.id}')">確定</button>` : ''}
             </div></td></tr>`;
         }).join('')
-          : `<tr><td colspan="10">${emptyBox('条件に一致する出荷がありません', '期間・得意先・営業担当者・出荷状態を変更してください')}</td></tr>`}</tbody>
+          : `<tr><td colspan="11">${emptyBox('条件に一致する出荷がありません', '期間・得意先・営業担当者・出荷担当・出荷状態を変更してください')}</td></tr>`}</tbody>
         ${list.length ? `<tfoot><tr>
-          <td colspan="5" class="right strong">合計</td>
+          <td colspan="6" class="right strong">合計</td>
           <td class="num strong">${num(qty)}</td>
           <td class="num strong">${money(Math.round(amt))}</td>
           <td colspan="3"></td></tr></tfoot>` : ''}
@@ -2814,6 +2901,8 @@ Views.users = () => {
   const cnt = r => list.filter(u => roleOf(u) === r).length;
   const enabledCnt = r => list.filter(u => roleOf(u) === r && u.enabled).length;
   const canEdit = u => sys || Number(u.organizationId) === Tenant.id();
+  const brName = u => (Store.db.branches.find(b => b.id === u.branchId) || {}).name || '—';
+  const coName = u => (Store.db.companies.find(c => c.id === u.companyId) || {}).name || '—';
   const isLocked = u => {
     const s = (Store.db.loginSecurity || {})[String(u.loginId).toLowerCase()];
     return !!(s && s.lockedUntil && new Date(s.lockedUntil) > new Date());
@@ -2833,19 +2922,20 @@ Views.users = () => {
       <div class="card-h"><h2>${ico('user', 16)} ユーザー管理</h2><span class="sub">ユーザーID・パスワード認証のアカウント</span>
         <div class="sp"><button class="btn sm primary" onclick="Actions.userForm()">${ico('plus', 14)} ユーザー登録</button></div></div>
       <div class="card-b tight"><div class="table-wrap"><table class="tb">
-        <thead><tr><th>ユーザーID</th>${sys ? '<th>組織</th>' : ''}<th>氏名</th><th>メールアドレス</th><th>電話番号</th><th>ロール</th><th>利用可能機能</th><th>最終ログイン日時</th><th>パスワード変更要求</th><th>状態</th><th></th></tr></thead>
+        <thead><tr><th>ユーザーID</th>${sys ? '<th>組織</th>' : ''}<th>氏名</th><th>担当者コード</th><th>所属会社／拠点</th><th>担当部署</th><th>メールアドレス</th><th>電話番号／内線</th><th>ロール</th><th>最終ログイン日時</th><th>状態</th><th></th></tr></thead>
         <tbody>${list.map(u => {
           const funcs = MENU.flatMap(g => g.items).filter(i => i.roles.includes(roleOf(u)) && (!i.sysOnly || sys)).length;
           return `<tr>
             <td class="mono">${esc(u.loginId)}</td>
             ${sys ? `<td class="sm">${esc(Tenant.name(u.organizationId))}</td>` : ''}
             <td><div class="hstack" style="gap:9px"><span class="av" style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;background:${(ROLES[roleOf(u)] || {}).av}">${esc(u.name.charAt(0))}</span><span class="strong">${esc(u.name)}</span></div></td>
+            <td class="mono">${esc(u.ownerCode || '—')}</td>
+            <td class="tiny">${esc(coName(u))}<div class="muted">${esc(brName(u))}</div></td>
+            <td class="sm">${esc(u.department || '—')}</td>
             <td class="mono">${esc(u.email)}</td>
-            <td class="sm">${esc(u.tel || '—')}</td>
-            <td><span class="badge ${(ROLES[roleOf(u)] || {}).color || 'gray'}">${esc(Role.label(u))}</span></td>
-            <td class="sm muted">${funcs} 機能</td>
+            <td class="sm">${esc(u.tel || '—')}${u.extension ? `<div class="tiny muted">内線 ${esc(u.extension)}</div>` : ''}</td>
+            <td><span class="badge ${(ROLES[roleOf(u)] || {}).color || 'gray'}">${esc(Role.label(u))}</span><div class="tiny muted">${funcs} 機能</div></td>
             <td class="sm nowrap mono">${u.lastLoginAt ? dtJP(u.lastLoginAt) : '—'}</td>
-            <td class="nowrap">${u.forcePasswordChange ? '<span class="badge amber">要求中</span>' : '<span class="muted">—</span>'}</td>
             <td class="nowrap">${u.enabled ? '<span class="badge green">有効</span>' : '<span class="badge gray">無効</span>'}${isLocked(u) ? ' <span class="badge rose">ロック中</span>' : ''}${u.forcePasswordChange ? ' <span class="badge amber">初回パスワード</span>' : ''}</td>
             <td class="right"><div class="tb-act">${canEdit(u) ? `
               <button class="btn xs" onclick="Actions.userForm('${u.id}')">編集</button>
@@ -3035,6 +3125,122 @@ Views.settings = () => {
   </div>`;
 };
 
+/* ==========================================================================
+   担当者別実績（ver 3.7）
+   受注・発注・入荷・出荷を担当者（users.id）単位で期間集計する。
+   ========================================================================== */
+let orF = null;
+const orDefault = () => {
+  const d = new Date();
+  return { from: todayStr(new Date(d.getFullYear(), d.getMonth(), 1)), to: TODAY };
+};
+const orFilters = () => (orF = orF || orDefault());
+const orSet = (k, v) => { orFilters()[k] = v; App.repaint(); };
+const orQuick = p => {
+  const d = new Date(), y = d.getFullYear(), m = d.getMonth(), f = orFilters();
+  if (p === 'month') { f.from = todayStr(new Date(y, m, 1)); f.to = TODAY; }
+  else if (p === 'lastMonth') { f.from = todayStr(new Date(y, m - 1, 1)); f.to = todayStr(new Date(y, m, 0)); }
+  else if (p === 'year') { f.from = `${y}-01-01`; f.to = TODAY; }
+  else if (p === 'all') { f.from = ''; f.to = ''; }
+  App.repaint();
+};
+const orRows = () => Owner.stats(orFilters().from, orFilters().to);
+const orExportCsv = () => {
+  const rows = orRows();
+  if (!rows.length) return UI.toast('出力できる実績がありません', 'warn');
+  const head = ['担当者コード', '担当者名', '担当部署', '受注件数', '受注金額', '発注件数', '発注金額', '入荷件数', '入荷数量', '出荷件数', '出荷数量', '出荷金額'];
+  const body = rows.map(r => [r.ownerCode, r.name, r.department, r.orderCnt, Math.round(r.orderAmt), r.poCnt, Math.round(r.poAmt), r.rcvCnt, r.rcvQty, r.shpCnt, r.shpQty, Math.round(r.shpAmt)]);
+  const csv = '\uFEFF' + [head, ...body].map(r => r.map(c => `"${String(c == null ? '' : c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `agri-erp-owners-${TODAY}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+  UI.toast(`担当者別実績 ${rows.length} 件をCSVに書き出しました`, 'ok');
+};
+
+Views.ownerReport = () => {
+  const f = orFilters();
+  const rows = orRows();
+  const sum = k => rows.reduce((a, r) => a + Number(r[k] || 0), 0);
+  const rank = rows.filter(r => !r.unassigned).slice().sort((a, b) => b.orderAmt - a.orderAmt);
+  const top = rank[0];
+  const scopeNote = Owner.scopeMine()
+    ? '現在は「自分の担当案件のみ」表示です（一般ユーザー）。管理者はシステム設定で「自組織すべて」に変更できます。'
+    : `表示範囲：${Owner.scopeLabel()}`;
+  return `<div class="vstack" style="gap:16px">
+    <div class="grid g4">
+      ${kpiCard({ label: '受注件数', icon: 'file', bg: 'var(--sky-100)', fg: 'var(--sky-600)', value: num(sum('orderCnt')), unit: '件', foot: `受注金額 ${money(Math.round(sum('orderAmt')))}` })}
+      ${kpiCard({ label: '出荷件数', icon: 'truck', bg: 'var(--green-100)', fg: 'var(--green-700)', value: num(sum('shpCnt')), unit: '件', foot: `出荷金額 ${money(Math.round(sum('shpAmt')))}` })}
+      ${kpiCard({ label: '発注件数', icon: 'cart', bg: 'var(--violet-50)', fg: 'var(--violet-600)', value: num(sum('poCnt')), unit: '件', foot: `発注金額 ${money(Math.round(sum('poAmt')))}` })}
+      ${kpiCard({ label: '入荷件数', icon: 'inbox', bg: 'var(--amber-100)', fg: 'var(--amber-600)', value: num(sum('rcvCnt')), unit: '件', foot: `入荷数量 ${num(sum('rcvQty'))} 点` })}
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>${ico('trend', 16)} 担当者別実績</h2><span class="sub">期間内の担当者ごとの件数・金額</span>
+        <div class="sp hstack" style="gap:8px">
+          <button class="btn sm" onclick="orExportCsv()">${ico('excel', 14)} CSV出力</button>
+        </div></div>
+      <div class="card-b">
+        <div class="filter-grid">
+          <div class="field span2"><label>期間</label>
+            <div class="hstack" style="gap:6px;flex-wrap:nowrap">
+              <input class="inp" type="date" value="${esc(f.from)}" onchange="orSet('from', this.value)">
+              <span class="muted sm">〜</span>
+              <input class="inp" type="date" value="${esc(f.to)}" onchange="orSet('to', this.value)">
+            </div>
+          </div>
+          <div class="field"><label>クイック期間</label>
+            <div class="hstack" style="gap:6px;flex-wrap:wrap">
+              <button class="chip" onclick="orQuick('month')">今月</button>
+              <button class="chip" onclick="orQuick('lastMonth')">先月</button>
+              <button class="chip" onclick="orQuick('year')">今年</button>
+              <button class="chip" onclick="orQuick('all')">全期間</button>
+            </div>
+          </div>
+          <div class="field"><label>表示範囲</label>
+            <div class="hstack" style="gap:6px">
+              <button class="chip ${Owner.scopeMode() === 'mine' ? 'on' : ''}" onclick="Owner.setScope('mine');App.repaint()">自分の担当のみ</button>
+              <button class="chip ${Owner.scopeMode() === 'org' ? 'on' : ''}" onclick="Owner.setScope('org');App.repaint()">自組織すべて</button>
+            </div>
+          </div>
+        </div>
+        <div class="tiny muted mt12">${ico('shield', 13)} ${esc(scopeNote)}　集計期間：${dJP(f.from || '')} 〜 ${dJP(f.to || '')}</div>
+        <div class="table-wrap mt12"><table class="tb">
+          <thead><tr>
+            <th>担当者</th><th>担当部署</th>
+            <th class="right">受注件数</th><th class="right">受注金額</th>
+            <th class="right">発注件数</th><th class="right">発注金額</th>
+            <th class="right">入荷件数</th><th class="right">入荷数量</th>
+            <th class="right">出荷件数</th><th class="right">出荷数量</th><th class="right">出荷金額</th>
+          </tr></thead>
+          <tbody>${rows.length ? rows.map(r => `<tr class="${r.unassigned ? 'row-warn' : ''}">
+            <td class="strong">${esc(r.name)}<div class="tiny muted mono">${esc(r.ownerCode || '—')}</div></td>
+            <td class="sm">${esc(r.department || '—')}</td>
+            <td class="num">${num(r.orderCnt)}</td>
+            <td class="num">${money(Math.round(r.orderAmt))}</td>
+            <td class="num">${num(r.poCnt)}</td>
+            <td class="num">${money(Math.round(r.poAmt))}</td>
+            <td class="num">${num(r.rcvCnt)}</td>
+            <td class="num">${num(r.rcvQty)}</td>
+            <td class="num">${num(r.shpCnt)}</td>
+            <td class="num">${num(r.shpQty)}</td>
+            <td class="num">${money(Math.round(r.shpAmt))}</td></tr>`).join('')
+            : `<tr><td colspan="11">${emptyBox('実績がありません', '期間を変更してください')}</td></tr>`}</tbody>
+          ${rows.length ? `<tfoot><tr>
+            <td colspan="2" class="right strong">合計</td>
+            <td class="num strong">${num(sum('orderCnt'))}</td><td class="num strong">${money(Math.round(sum('orderAmt')))}</td>
+            <td class="num strong">${num(sum('poCnt'))}</td><td class="num strong">${money(Math.round(sum('poAmt')))}</td>
+            <td class="num strong">${num(sum('rcvCnt'))}</td><td class="num strong">${num(sum('rcvQty'))}</td>
+            <td class="num strong">${num(sum('shpCnt'))}</td><td class="num strong">${num(sum('shpQty'))}</td>
+            <td class="num strong">${money(Math.round(sum('shpAmt')))}</td></tr></tfoot>` : ''}
+        </table></div>
+        ${top ? `<div class="note green mt12">${ico('trend', 15)} 受注金額トップ：<b>${esc(top.name)}</b>（${money(Math.round(top.orderAmt))}／${num(top.orderCnt)} 件）</div>` : ''}
+      </div>
+    </div>
+  </div>`;
+};
+
 
 /* ===== 07-issuer.js ===== */
 /* ==========================================================================
@@ -3070,7 +3276,9 @@ const TPL_FIELDS = [
   { key: 'email', label: 'メール' },
   { key: 'manager', label: '担当者' },
   { key: 'invoiceNumber', label: '登録番号' },
-  { key: 'logo', label: 'ロゴ' }
+  { key: 'logo', label: 'ロゴ' },
+  /* ver 3.7: 伝票の担当者（受注・発注・入荷・出荷の担当）を印字するか */
+  { key: 'owner', label: '担当者表示' }
 ];
 
 /* レイアウト既定値（旧テンプレートはこの値で補完＝既存テンプレート移行対応） */
@@ -3743,6 +3951,10 @@ const Print = {
   /* 帳票共通ヘッダ（タイトル・帳票番号・発行元） */
   head(title, docNo, sub, rec) {
     const ctx = this.ctxOf(rec, this._pv);
+    /* ver 3.7: 担当者表示（テンプレートの「担当者表示」が OFF のときは出力しない） */
+    const ownerName = (typeof Owner !== 'undefined')
+      ? Owner.forDoc((rec && rec.docKind) || '', rec, ctx.template || (this._pv && this._pv.template) || null)
+      : '';
     return `<div class="sheet-head">
       <div><h1>${esc(title)}</h1><div style="font-size:8.5pt;color:#64748b;margin-top:3px">${esc(sub || '')}</div></div>
       ${Issuer.headerHtml(ctx)}
@@ -3750,6 +3962,7 @@ const Print = {
     <div class="sheet-meta">
       <div class="box"><div class="t">帳票番号</div><div class="v">${esc(docNo)}</div></div>
       <div class="box"><div class="t">発行日</div><div class="v">${dJPfull(TODAY)}</div></div>
+      ${ownerName ? `<div class="box" style="min-width:22%"><div class="t">担当者</div><div class="v">${esc(ownerName)}</div></div>` : ''}
     </div>`;
   },
   foot(rec, docNo, refNo) {
@@ -4150,24 +4363,24 @@ const Print = {
     };
     if (kind === 'quote' || kind === 'invoice') {
       const id = 'pv_order';
-      db.orders.unshift({ id, orderNo: 'PV-0001', orderDate: TODAY, customerId: cust.id, customerName: cust.name, salesRepId: null, status: 'received', total: 0, remarks: '（プレビュー用サンプル）' });
+      db.orders.unshift({ id, orderNo: 'PV-0001', orderDate: TODAY, customerId: cust.id, customerName: cust.name, salesRepId: null, salesUserId: (typeof Owner !== 'undefined' ? (Owner.candidates()[0] || {}).id || null : null), status: 'received', total: 0, remarks: '（プレビュー用サンプル）' });
       for (let i = 0; i < 3; i++) db.orderLines.push(line(i, { id: 'pv_o_l' + i, orderId: id }));
       return { id };
     }
     if (kind === 'delivery_note' || kind === 'shipping_slip') {
       const id = 'pv_ship';
-      db.shipments.unshift({ id, shipmentNo: 'PV-0001', shipDate: TODAY, customerId: cust.id, customerName: cust.name, shipToName: cust.name, shipToAddr: cust.address || '', status: 'confirmed', carrier: 'ヤマト運輸', trackingNo: '0000-0000-0000', remarks: '' });
+      db.shipments.unshift({ id, shipmentNo: 'PV-0001', shipDate: TODAY, customerId: cust.id, customerName: cust.name, shipToName: cust.name, shipToAddr: cust.address || '', status: 'confirmed', carrier: 'ヤマト運輸', trackingNo: '0000-0000-0000', remarks: '', shipmentUserId: (typeof Owner !== 'undefined' ? (Owner.candidates()[0] || {}).id || null : null) });
       for (let i = 0; i < 3; i++) db.shipmentLines.push(line(i, { id: 'pv_s_l' + i, shipmentId: id }));
       return { id };
     }
     if (kind === 'purchase_order') {
       const id = 'pv_po';
-      db.purchaseOrders.unshift({ id, poNo: 'PV-0001', orderDate: TODAY, expectedDate: TODAY, supplierId: sup.id, supplierName: sup.name, status: 'ordered', total: 0, remarks: '' });
+      db.purchaseOrders.unshift({ id, poNo: 'PV-0001', orderDate: TODAY, expectedDate: TODAY, supplierId: sup.id, supplierName: sup.name, status: 'ordered', total: 0, remarks: '', purchaseUserId: (typeof Owner !== 'undefined' ? (Owner.candidates()[0] || {}).id || null : null) });
       for (let i = 0; i < 3; i++) db.poLines.push(line(i, { id: 'pv_p_l' + i, poId: id }));
       return { id };
     }
     const id = 'pv_rec';
-    db.receipts.unshift({ id, receiptNo: 'PV-0001', receiptDate: TODAY, supplierId: sup.id, supplierName: sup.name, status: 'received', total: 0, remarks: '' });
+    db.receipts.unshift({ id, receiptNo: 'PV-0001', receiptDate: TODAY, supplierId: sup.id, supplierName: sup.name, status: 'received', total: 0, remarks: '', receiptUserId: (typeof Owner !== 'undefined' ? (Owner.candidates()[0] || {}).id || null : null) });
     for (let i = 0; i < 3; i++) db.receiptLines.push(line(i, { id: 'pv_r_l' + i, receiptId: id }));
     return { id };
   },
@@ -4501,6 +4714,321 @@ const TplEditor = {
 };
 
 
+/* ===== 09-owner.js ===== */
+/* ==========================================================================
+   アグリERP — 担当者管理（ver 3.7）
+   受注・発注・入荷・出荷の「誰が担当したか」を users.id で保持する。
+   - 氏名の自由入力は禁止。必ずユーザーマスタ（users）から選択する
+   - 画面表示時のみ users.name を解決して表示する
+   - 担当者候補はログインユーザーと同一 organization_id のユーザーに限定
+   - 新規作成時の初期値はログインユーザー（変更可能）
+   - 担当者の変更は audit_logs へ記録する（変更前 → 変更後）
+   ========================================================================== */
+
+/* 伝票種別 → 担当者列（DB は *_user_id / アプリは camelCase） */
+const OWNER_KIND = {
+  orders:         { key: 'salesUserId',    label: '担当営業', short: '営業', legacy: 'salesRepId',  noKey: 'orderNo' },
+  purchaseOrders: { key: 'purchaseUserId', label: '発注担当', short: '発注', legacy: null,          noKey: 'poNo' },
+  receipts:       { key: 'receiptUserId',  label: '受入担当', short: '受入', legacy: 'receivedBy',  noKey: 'receiptNo' },
+  shipments:      { key: 'shipmentUserId', label: '出荷担当', short: '出荷', legacy: null,          noKey: 'shipmentNo' }
+};
+/* 帳票種別 → 担当者を引く伝票種別 */
+const OWNER_DOC = {
+  quote: 'orders', invoice: 'orders', purchase_order: 'purchaseOrders',
+  receipt_note: 'receipts', delivery_note: 'shipments', shipping_slip: 'shipments', picking_list: 'shipments'
+};
+
+const Owner = {
+  KINDS: ['orders', 'purchaseOrders', 'receipts', 'shipments'],
+
+  /* ------------------------------ 基本 ------------------------------ */
+  def(kind) { return OWNER_KIND[kind] || OWNER_KIND.orders; },
+  key(kind) { return this.def(kind).key; },
+  label(kind) { return this.def(kind).label; },
+  user(id) {
+    if (!id) return null;
+    return (Store.db.users || []).find(u => u.id === id)
+      || ((typeof Tenant !== 'undefined' && Tenant.raw ? Tenant.raw('users') : []) || []).find(u => u.id === id)
+      || null;
+  },
+  name(id) { const u = this.user(id); return u ? u.name : ''; },
+  code(id) { const u = this.user(id); return u ? (u.ownerCode || '') : ''; },
+  dept(id) { const u = this.user(id); return u ? (u.department || '') : ''; },
+  /* 表示名（未設定は「—」ではなく明示する） */
+  display(id) { return this.name(id) || '未設定'; },
+  /* 担当者ID（旧列がある伝票は旧列から読み替える＝既存データを失わない） */
+  idOf(kind, rec) {
+    if (!rec) return null;
+    const d = this.def(kind);
+    let v = rec[d.key];
+    if (!v && d.legacy) v = rec[d.legacy];
+    return v || null;
+  },
+  record(kind, id) {
+    const arr = (Store.db[kind] || []);
+    return arr.find(x => x.id === id) || null;
+  },
+  docNo(kind, rec) {
+    if (!rec) return '';
+    return rec[this.def(kind).noKey] || rec.id || '';
+  },
+
+  /* ------------------------------ 候補（組織で絞り込み） ------------------------------ */
+  /* ログインユーザーの organization_id と一致する有効ユーザーのみ。
+     表示順は 担当者コード → 氏名（ふりがな昇順相当）。 */
+  candidates() {
+    const org = (typeof Tenant !== 'undefined') ? Number(Tenant.id()) : 1;
+    return (Store.db.users || [])
+      .filter(u => u && u.enabled !== false && Number(u.organizationId) === org)
+      .slice()
+      .sort((a, b) => String(a.ownerCode || 'zzz').localeCompare(String(b.ownerCode || 'zzz'), 'ja')
+        || String(a.name || '').localeCompare(String(b.name || ''), 'ja'));
+  },
+  isCandidate(id) { return this.candidates().some(u => u.id === id); },
+  /* 新規作成時の初期値（ログインユーザーが候補内ならその人） */
+  defaultId() {
+    const u = (typeof Auth !== 'undefined' && Auth) ? Auth.user : null;
+    if (u && this.isCandidate(u.id)) return u.id;
+    const c = this.candidates()[0];
+    return c ? c.id : '';
+  },
+
+  /* ------------------------------ 検索付きプルダウン ------------------------------ */
+  _pool() {
+    return this.candidates().map(u => ({
+      id: u.id, name: u.name || '', code: u.ownerCode || '', dept: u.department || ''
+    }));
+  },
+  _opt(u, sel) {
+    const sub = [u.code ? `（${u.code}）` : '', u.dept ? ` / ${u.dept}` : ''].join('');
+    return `<option value="${esc(u.id)}"${sel === u.id ? ' selected' : ''}>${esc(u.name)}${esc(sub)}</option>`;
+  },
+  optionsHtml(sel) {
+    return `<option value="">（未設定）</option>` + this._pool().map(u => this._opt(u, sel)).join('');
+  },
+  /* pre: 画面内で一意な接頭辞 / kind: 伝票種別 / rec: 既存レコード（新規は null） */
+  pickerHtml(pre, kind, rec, opt) {
+    const o = opt || {};
+    const d = this.def(kind);
+    const sel = rec ? this.idOf(kind, rec) : (o.defaultCurrent ? this.defaultId() : null);
+    const org = (typeof Tenant !== 'undefined') ? Tenant.org() : null;
+    const n = this.candidates().length;
+    return `<div class="opick">
+      <input class="inp" id="ows_${esc(pre)}" placeholder="検索（氏名・担当者コード）" autocomplete="off"
+        oninput="Owner.filter('${esc(pre)}', this.value)">
+      <select class="inp" id="ow_${esc(pre)}" aria-label="${esc(d.label)}">${this.optionsHtml(sel)}</select>
+      <div class="tiny muted">${esc(d.label)}の候補：${esc(org ? org.organizationName : '自組織')} 所属 ${n} 名（他組織のユーザーは表示されません）</div>
+    </div>`;
+  },
+  /* 入力に合わせて候補を絞り込む（100名以上でも軽量：option の再生成のみ） */
+  filter(pre, q) {
+    const sel = document.getElementById('ow_' + pre);
+    if (!sel) return;
+    const cur = sel.value;
+    const kw = String(q || '').trim().toLowerCase();
+    const pool = this._pool();
+    const hit = !kw ? pool : pool.filter(u => (u.name + ' ' + u.code + ' ' + u.dept).toLowerCase().includes(kw));
+    const keep = pool.find(u => u.id === cur);
+    sel.innerHTML = `<option value="">（未設定）</option>`
+      + hit.map(u => this._opt(u, cur)).join('')
+      + (keep && !hit.some(u => u.id === keep.id) ? this._opt(keep, cur) : '');
+    sel.value = cur;
+  },
+  pick(pre) {
+    const el = document.getElementById('ow_' + pre);
+    return el ? (el.value || null) : null;
+  },
+
+  /* ------------------------------ 保存・監査ログ ------------------------------ */
+  /* 担当者を設定する。変更があれば audit_logs に「担当者変更」を記録する */
+  assign(kind, rec, nextId) {
+    if (!rec) return false;
+    const d = this.def(kind);
+    const prev = this.idOf(kind, rec);
+    const next = nextId || null;
+    if ((prev || null) === next) return false;
+    rec[d.key] = next;
+    /* 旧列（受注の営業担当）も同期し、既存の出荷検索・得意先表示と齟齬を出さない */
+    if (kind === 'orders' && 'salesRepId' in rec) rec.salesRepId = next;
+    try {
+      Audit.ownerChange(kind, rec, prev, next);
+    } catch (e) { /* 監査ログ失敗でも業務は継続 */ }
+    return true;
+  },
+
+  /* ------------------------------ 表示制御（権限） ------------------------------
+     system_admin : 全組織閲覧（この画面では自組織のデータを表示）
+     org_admin    : 自組織のみ
+     manager      : 自組織のみ
+     user         : 既定は自組織の担当案件のみ（システム設定で「自組織すべて」に変更可能）
+     担当者未設定の旧データは、誰の担当でもないため全員に表示する（業務停止を避ける）。 */
+  scopeMode() {
+    const s = (Store.db.settings || {});
+    return s.ownerScope === 'org' ? 'org' : 'mine';
+  },
+  scopeMine() {
+    const r = (typeof Role !== 'undefined') ? Role.of(Auth.user) : 'user';
+    return r === 'user' && this.scopeMode() === 'mine';
+  },
+  scopeLabel() {
+    if (this.scopeMine()) return '自分の担当案件のみ表示';
+    const r = (typeof Role !== 'undefined') ? Role.of(Auth.user) : 'user';
+    return r === 'user' ? '自組織のすべての案件を表示' : '自組織のすべての案件を表示（管理者）';
+  },
+  setScope(mode) {
+    if (!Store.db.settings) Store.db.settings = {};
+    Store.db.settings.ownerScope = mode === 'org' ? 'org' : 'mine';
+    Store.save();
+  },
+  canSee(kind, rec) {
+    if (!this.scopeMine()) return true;
+    const id = this.idOf(kind, rec);
+    if (!id) return true;                       /* 未設定の旧データは表示 */
+    return !!(Auth.user && Auth.user.id === id);
+  },
+  visible(kind, rows) {
+    const list = rows || [];
+    return this.scopeMine() ? list.filter(r => this.canSee(kind, r)) : list;
+  },
+  /* 絞り込み用セレクト（一覧の検索条件） */
+  filterHtml(pre, kind, selected, onChange) {
+    const list = this.candidates();
+    const fn = onChange || `Owner.setFilter('${esc(pre)}', this.value)`;
+    return `<select class="inp" style="max-width:170px" onchange="${fn}">
+      <option value="">すべての${esc(this.label(kind))}</option>
+      <option value="__none"${selected === '__none' ? ' selected' : ''}>（未設定）</option>
+      ${list.map(u => `<option value="${esc(u.id)}"${selected === u.id ? ' selected' : ''}>${esc(u.name)}${u.ownerCode ? '（' + esc(u.ownerCode) + '）' : ''}</option>`).join('')}
+    </select>`;
+  },
+  match(kind, rec, filterId) {
+    if (!filterId) return true;
+    const id = this.idOf(kind, rec);
+    if (filterId === '__none') return !id;
+    return id === filterId;
+  },
+
+  /* ------------------------------ 帳票 ------------------------------ */
+  /* 帳票に表示する担当者名（テンプレートの「担当者表示」が OFF なら空） */
+  forDoc(docKind, rec, template) {
+    if (template && template.owner === false) return '';
+    const kind = OWNER_DOC[docKind];
+    if (!kind || !rec) return '';
+    let id = this.idOf(kind, rec);
+    /* 出荷系は出荷担当 → 受注の担当営業 の順で解決（旧データでも担当が分かるように） */
+    if (!id && kind === 'shipments' && rec.orderId) {
+      const o = Store.order(rec.orderId);
+      if (o) id = this.idOf('orders', o);
+    }
+    return this.name(id);
+  },
+
+  /* ------------------------------ 集計 ------------------------------ */
+  inRange(date, from, to) {
+    const d = String(date || '').slice(0, 10);
+    if (!d) return false;
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    return true;
+  },
+  stats(from, to) {
+    const f = from || '', t = to || '';
+    const map = {};
+    const row = id => {
+      const u = id ? this.user(id) : null;
+      const key = id || '__none';
+      if (!map[key]) map[key] = {
+        userId: id || '', name: u ? u.name : '（未設定）', ownerCode: u ? (u.ownerCode || '') : '',
+        department: u ? (u.department || '') : '', unassigned: !id,
+        orderCnt: 0, orderAmt: 0, poCnt: 0, poAmt: 0,
+        rcvCnt: 0, rcvQty: 0, shpCnt: 0, shpQty: 0, shpAmt: 0
+      };
+      return map[key];
+    };
+    (Store.db.orders || []).forEach(o => {
+      if (!this.inRange(o.orderDate, f, t)) return;
+      const r = row(this.idOf('orders', o));
+      r.orderCnt += 1; r.orderAmt += Number(o.total || 0);
+    });
+    (Store.db.purchaseOrders || []).forEach(p => {
+      if (!this.inRange(p.orderDate, f, t)) return;
+      const r = row(this.idOf('purchaseOrders', p));
+      r.poCnt += 1; r.poAmt += Number(p.total || 0);
+    });
+    (Store.db.receipts || []).forEach(x => {
+      if (!this.inRange(x.receiptDate, f, t)) return;
+      const r = row(this.idOf('receipts', x));
+      r.rcvCnt += 1;
+      r.rcvQty += (Store.receiptLines(x.id) || []).reduce((a, l) => a + Number(l.quantity || 0), 0);
+    });
+    (Store.db.shipments || []).forEach(s => {
+      if (!this.inRange(s.shipDate, f, t)) return;
+      if (s.status === 'cancelled') return;
+      const r = row(this.idOf('shipments', s));
+      r.shpCnt += 1;
+      r.shpQty += (Store.shipLines(s.id) || []).reduce((a, l) => a + Number(l.quantity || 0), 0);
+      r.shpAmt += Number(Store.shipmentAmount(s) || 0);
+    });
+    /* 候補ユーザーは実績ゼロでも行を出す（担当者別の比較のため） */
+    this.candidates().forEach(u => { if (!map[u.id]) row(u.id); });
+    return Object.values(map).sort((a, b) =>
+      (a.unassigned ? 1 : 0) - (b.unassigned ? 1 : 0)
+      || b.orderAmt - a.orderAmt
+      || String(a.name).localeCompare(String(b.name), 'ja'));
+  },
+  /* 今月のランキング（受注件数／出荷件数）と未処理案件数 */
+  ranking() {
+    const m = TODAY.slice(0, 7);
+    const g = {};
+    const get = id => (g[id || '__none'] = g[id || '__none'] || { id: id || '', name: this.display(id), orderCnt: 0, shipCnt: 0, pending: 0 });
+    (Store.db.orders || []).forEach(o => {
+      if (String(o.orderDate || '').slice(0, 7) === m && o.status !== 'cancelled') get(this.idOf('orders', o)).orderCnt++;
+    });
+    (Store.db.shipments || []).forEach(s => {
+      if (String(s.shipDate || '').slice(0, 7) === m && s.status !== 'cancelled') get(this.idOf('shipments', s)).shipCnt++;
+    });
+    /* 未処理案件数：受注残 + 発注残 + 未確定出荷 */
+    (Store.db.orders || []).forEach(o => {
+      if (o.status === 'cancelled') return;
+      if (Store.orderRemaining(o) > 0) get(this.idOf('orders', o)).pending++;
+    });
+    (Store.db.purchaseOrders || []).forEach(p => {
+      if (p.status === 'cancelled') return;
+      if (Store.poRemaining(p) > 0) get(this.idOf('purchaseOrders', p)).pending++;
+    });
+    (Store.db.shipments || []).forEach(s => {
+      if (s.status === 'instructed') get(this.idOf('shipments', s)).pending++;
+    });
+    const all = Object.values(g);
+    const top = (k, n) => all.filter(r => r[k] > 0).sort((a, b) => b[k] - a[k] || String(a.name).localeCompare(String(b.name), 'ja')).slice(0, n);
+    return { topOrder: top('orderCnt', 5), topShip: top('shipCnt', 5), pending: all.filter(r => r.pending > 0).sort((a, b) => b.pending - a.pending).slice(0, 5) };
+  },
+  /* ダッシュボードのカード（担当者別ランキング） */
+  rankingHtml() {
+    const r = this.ranking();
+    const list = (rows, k, unit) => rows.length ? rows.map((x, i) => `<div class="rank-row">
+        <span class="rank-no ${i === 0 ? 'top' : ''}">${i + 1}</span>
+        <span class="rank-nm">${esc(x.name)}</span>
+        <span class="rank-v">${num(x[k])}<small>${unit}</small></span>
+      </div>`).join('') : `<div class="tiny muted" style="padding:8px 0">まだ実績がありません</div>`;
+    return `<div class="grid g3">
+      <div class="card">
+        <div class="card-h"><h2>${ico('trend', 16)} 今月の受注件数 TOP5</h2><span class="sub">担当営業別</span>
+          <div class="sp"><button class="btn xs" onclick="App.go('ownerReport')">実績へ</button></div></div>
+        <div class="card-b">${list(r.topOrder, 'orderCnt', '件')}</div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>${ico('truck', 16)} 今月の出荷件数 TOP5</h2><span class="sub">出荷担当別</span></div>
+        <div class="card-b">${list(r.topShip, 'shipCnt', '件')}</div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>${ico('clock', 16)} 未処理案件数</h2><span class="sub">受注残・発注残・未確定出荷</span></div>
+        <div class="card-b">${list(r.pending, 'pending', '件')}</div>
+      </div>
+    </div>`;
+  }
+};
+
+
 /* ===== 06-app.js ===== */
 /* ==========================================================================
    アグリERP — ルーティング・画面描画・業務アクション
@@ -4753,7 +5281,7 @@ const Actions = {
     window.__lines = [{ itemId: Store.db.items[0].id, qty: 1, price: Store.db.items[0].salePrice }];
     const c0 = Store.db.customers[0] || {};
     window.__oCust = c0.id || '';
-    window.__oRep = c0.salesRepId || ((Store.salesReps()[0] || {}).id || '');
+    window.__oRep = Owner.isCandidate(c0.salesRepId) ? c0.salesRepId : Owner.defaultId();
     this._drawOrderForm();
   },
   /* 得意先の変更で営業担当者を既定担当へ追従 */
@@ -4772,7 +5300,7 @@ const Actions = {
         <div class="field"><label>受注日 *</label><input class="inp" type="date" id="o_date" value="${TODAY}"></div>
         <div class="field"><label>納期 *</label><input class="inp" type="date" id="o_due" value="${todayStr(addDays(new Date(), 2))}"></div>
         <div class="field span2"><label>得意先 *</label><select class="inp" id="o_cust" onchange="Actions.chgOrderCust(this.value)">${Store.db.customers.map(x => `<option value="${x.id}"${window.__oCust === x.id ? ' selected' : ''}>${esc(x.code)} ${esc(x.name)}</option>`).join('')}</select></div>
-        <div class="field"><label>営業担当者</label><select class="inp" id="o_rep">${Store.salesReps().map(u => `<option value="${esc(u.id)}"${window.__oRep === u.id ? ' selected' : ''}>${esc(u.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>担当営業 *</label>${Owner.pickerHtml('o', 'orders', { salesUserId: window.__oRep || Owner.defaultId() })}</div>
       </div>
 
       <div class="hr"></div>
@@ -4815,6 +5343,8 @@ const Actions = {
     const issErr = Issuer.validate('o'); if (issErr) return UI.toast(issErr, 'err');
     const issuer = Issuer.stamp('o');
     const orderNo = Store.nextNo('ORD', document.getElementById('o_date').value);
+    const ownerId = Owner.pick('o') || null;
+    if (ownerId && !Owner.isCandidate(ownerId)) return UI.toast('担当者は自組織のユーザーから選択してください', 'err');
     let sub = 0;
     const oid = uid();
     const ols = lines.map((l, i) => {
@@ -4826,7 +5356,7 @@ const Actions = {
     const tax = Math.round(sub * .08);
     Store.db.orders.unshift({
       id: oid, orderNo, customerId: custId, customerName: Store.customer(custId).name,
-      salesRepId: (document.getElementById('o_rep') || {}).value || null,
+      salesRepId: ownerId, salesUserId: ownerId,
       orderDate: document.getElementById('o_date').value, dueDate: document.getElementById('o_due').value,
       shipDate: document.getElementById('o_due').value, status: 'received',
       companyId: issuer.companyId, branch1Id: issuer.branch1Id, branch2Id: issuer.branch2Id,
@@ -4840,7 +5370,7 @@ const Actions = {
   orderDetail(id) {
     const o = Store.order(id);
     const lines = Store.orderLines(o.id);
-    UI.modal(`受注 ${o.orderNo}`, `${o.customerName} ／ 受注日 ${dJP(o.orderDate)}`, `
+    UI.modal(`受注 ${o.orderNo}`, `${o.customerName} ／ 受注日 ${dJP(o.orderDate)} ／ 担当営業 ${Owner.display(Owner.idOf('orders', o))}`, `
       <div class="grid g3 mb16">
         <div class="kpi" style="padding:11px 13px"><div class="k-lb">受注金額</div><div class="k-v" style="font-size:20px">${money(o.total)}</div></div>
         <div class="kpi" style="padding:11px 13px"><div class="k-lb">納期</div><div class="k-v" style="font-size:20px">${dJP(o.dueDate)}</div><div class="k-f">${relDay(o.dueDate)}</div></div>
@@ -4858,6 +5388,7 @@ const Actions = {
         <div class="table-wrap mt8"><table class="tb" style="min-width:480px"><thead><tr><th>出荷番号</th><th>出荷日</th><th>状態</th></tr></thead>
         <tbody>${Store.db.shipments.filter(s => s.orderId === o.id).map(s => `<tr><td class="mono">${esc(s.shipmentNo)}</td><td class="sm">${dJP(s.shipDate)}</td><td>${s.status === 'confirmed' ? '<span class="badge green">確定</span>' : '<span class="badge amber">指示済</span>'}</td></tr>`).join('')}</tbody></table></div>` : ''}`,
       `<button class="btn" onclick="UI.closeModal()">閉じる</button>
+       <button class="btn" onclick="UI.closeModal();Actions.ownerForm('orders','${o.id}')">担当者変更</button>
        ${Store.orderRemaining(o) > 0 ? `<button class="btn primary" onclick="UI.closeModal();Actions.newShipFromOrder('${o.id}')">${ico('truck', 15)} 出荷指示を作成</button>` : ''}
        <button class="btn danger" onclick="UI.closeModal();Actions.cancelOrder('${o.id}')">取消</button>`, 'wide');
   },
@@ -4876,6 +5407,7 @@ const Actions = {
       const sup = Store.supplier(it.supplierId) || Store.db.suppliers[0];
       window.__poSup = sup.id; window.__poLead = sup.leadTime;
     } else { window.__poSup = Store.db.suppliers[0].id; window.__poLead = Store.db.suppliers[0].leadTime; }
+    if (!window.__poRep || !Owner.isCandidate(window.__poRep)) window.__poRep = Owner.defaultId();
     this._drawPOForm();
   },
   _drawPOForm() {
@@ -4890,6 +5422,7 @@ const Actions = {
         <div class="field"><label>入荷予定日 *</label><input class="inp" type="date" id="p_exp" value="${exp}"><span class="hint">リードタイム ${sup.leadTime} 日から自動計算</span></div>
         <div class="field span3"><label>仕入先 *</label><select class="inp" onchange="Actions.chgPOSup(this.value)">
           ${Store.db.suppliers.map(s => `<option value="${s.id}"${window.__poSup === s.id ? ' selected' : ''}>${esc(s.code)} ${esc(s.name)}（LT ${s.leadTime}日）</option>`).join('')}</select></div>
+        <div class="field span3"><label>発注担当 *</label>${Owner.pickerHtml('p', 'purchaseOrders', { purchaseUserId: window.__poRep || Owner.defaultId() })}</div>
       </div>
 
       <div class="hr"></div>
@@ -4928,6 +5461,8 @@ const Actions = {
     const issErr = Issuer.validate('p'); if (issErr) return UI.toast(issErr, 'err');
     const issuer = Issuer.stamp('p');
     const poNo = Store.nextNo('PO', document.getElementById('p_date').value);
+    const ownerId = Owner.pick('p') || null;
+    if (ownerId && !Owner.isCandidate(ownerId)) return UI.toast('担当者は自組織のユーザーから選択してください', 'err');
     const exp = document.getElementById('p_exp').value;
     let sub = 0; const pid = uid();
     const pls = lines.map((l, i) => {
@@ -4941,6 +5476,7 @@ const Actions = {
       orderDate: document.getElementById('p_date').value, expectedDate: exp, status: 'ordered',
       companyId: issuer.companyId, branch1Id: issuer.branch1Id, branch2Id: issuer.branch2Id,
       subtotal: sub, tax, total: sub + tax, remarks: document.getElementById('p_remarks').value,
+      purchaseUserId: ownerId,
       createdBy: Auth.user ? Auth.user.id : null, createdAt: new Date().toISOString()
     });
     pls.forEach(l => Store.db.poLines.push(l));
@@ -4949,7 +5485,7 @@ const Actions = {
   },
   poDetail(id) {
     const p = Store.po(id); const lines = Store.poLines(p.id);
-    UI.modal(`発注 ${p.poNo}`, `${p.supplierName} ／ 発注日 ${dJP(p.orderDate)}`, `
+    UI.modal(`発注 ${p.poNo}`, `${p.supplierName} ／ 発注日 ${dJP(p.orderDate)} ／ 発注担当 ${Owner.display(Owner.idOf('purchaseOrders', p))}`, `
       <div class="grid g3 mb16">
         <div class="kpi" style="padding:11px 13px"><div class="k-lb">発注金額</div><div class="k-v" style="font-size:20px">${money(p.total)}</div></div>
         <div class="kpi" style="padding:11px 13px"><div class="k-lb">入荷予定日</div><div class="k-v" style="font-size:20px">${dJP(p.expectedDate)}</div><div class="k-f">${relDay(p.expectedDate)}</div></div>
@@ -4963,6 +5499,7 @@ const Actions = {
           <td class="num">${money(l.unitPrice)}</td><td class="num">${money(l.amount)}</td></tr>`).join('')}</tbody>
       </table></div>`,
       `<button class="btn" onclick="UI.closeModal()">閉じる</button>
+       <button class="btn" onclick="UI.closeModal();Actions.ownerForm('purchaseOrders','${p.id}')">担当者変更</button>
        ${Store.poRemaining(p) > 0 ? `<button class="btn primary" onclick="UI.closeModal();Actions.receiveForm('${p.id}')">${ico('inbox', 15)} 入荷処理</button>` : ''}`, 'wide');
   },
 
@@ -4976,6 +5513,7 @@ const Actions = {
     } else {
       window.__rcPO = ''; window.__rcLines = [{ poLineId: null, itemId: Store.db.items[0].id, qty: 1, cost: Store.db.items[0].costPrice, lot: '' }];
     }
+    if (!window.__rcRep || !Owner.isCandidate(window.__rcRep)) window.__rcRep = Owner.defaultId();
     this._drawReceiveForm();
   },
   _drawReceiveForm() {
@@ -4992,6 +5530,7 @@ const Actions = {
           <option value="">発注に紐付けない（直接入荷）</option>
           ${Store.db.purchaseOrders.filter(x => Store.poRemaining(x) > 0).map(x => `<option value="${x.id}"${window.__rcPO === x.id ? ' selected' : ''}>${esc(x.poNo)} ／ ${esc(x.supplierName)} ／ 残 ${dec(Store.poRemaining(x))}</option>`).join('')}
         </select></div>
+        <div class="field span3"><label>受入担当 *</label>${Owner.pickerHtml('r', 'receipts', { receiptUserId: window.__rcRep || Owner.defaultId() })}</div>
       </div>
 
       <div class="hr"></div>
@@ -5030,6 +5569,8 @@ const Actions = {
     const issuer = Issuer.stamp('r');
     const poId = window.__rcPO || null;
     const supId = poId ? Store.po(poId).supplierId : document.getElementById('r_sup').value;
+    const ownerId = Owner.pick('r') || null;
+    if (ownerId && !Owner.isCandidate(ownerId)) return UI.toast('担当者は自組織のユーザーから選択してください', 'err');
     const receiptNo = Store.nextNo('RC');
     const rid = uid();
     let sub = 0;
@@ -5043,12 +5584,12 @@ const Actions = {
       receiptDate: document.getElementById('r_date').value, status: 'confirmed',
       companyId: issuer.companyId, branch1Id: issuer.branch1Id, branch2Id: issuer.branch2Id,
       subtotal: sub, tax, total: sub + tax, remarks: document.getElementById('r_remarks').value,
-      receivedBy: Auth.user ? Auth.user.id : null, createdAt: new Date().toISOString()
+      receivedBy: Auth.user ? Auth.user.id : null, receiptUserId: ownerId, createdAt: new Date().toISOString()
     });
     /* 在庫加算 + 発注残更新 */
     rls.forEach(l => {
       Store.db.receiptLines.push(l);
-      Store.applyStock(l.itemId, l.quantity, 'receipt', { table: 'receipts', id: rid, no: receiptNo, notes: '入荷確定' });
+      Store.applyStock(l.itemId, l.quantity, 'receipt', { table: 'receipts', id: rid, no: receiptNo, notes: '入荷確定', ownerId: ownerId });
       if (l.poLineId) { const pl = Store.db.poLines.find(x => x.id === l.poLineId); if (pl) pl.receivedQty += l.quantity; }
     });
     /* 発注ステータス更新 */
@@ -5063,13 +5604,14 @@ const Actions = {
   receiptDetail(id) {
     const r = Store.db.receipts.find(x => x.id === id);
     const lines = Store.receiptLines(id);
-    UI.modal(`入荷 ${r.receiptNo}`, `${r.supplierName} ／ ${dJP(r.receiptDate)}`, `
+    UI.modal(`入荷 ${r.receiptNo}`, `${r.supplierName} ／ ${dJP(r.receiptDate)} ／ 受入担当 ${Owner.display(Owner.idOf('receipts', r))}`, `
       <div class="table-wrap"><table class="tb" style="min-width:520px">
         <thead><tr><th>品名</th><th class="right">入荷数</th><th class="right">単価</th><th class="right">金額</th><th>ロット</th></tr></thead>
         <tbody>${lines.map(l => `<tr><td class="strong">${esc(l.itemName)}</td><td class="num">${dec(l.quantity)}</td>
           <td class="num">${money(l.unitCost)}</td><td class="num">${money(l.amount)}</td><td class="mono">${esc(l.lotNo || '—')}</td></tr>`).join('')}</tbody>
         <tfoot><tr><td colspan="3" class="right strong">合計（税込）</td><td class="num strong">${money(r.total)}</td><td></td></tr></tfoot>
-      </table></div>`, `<button class="btn" onclick="UI.closeModal()">閉じる</button>`, 'wide');
+      </table></div>`, `<button class="btn" onclick="UI.closeModal()">閉じる</button>
+        <button class="btn" onclick="UI.closeModal();Actions.ownerForm('receipts','${r.id}')">担当者変更</button>`, 'wide');
   },
 
   /* ------------------------- 出荷 ------------------------- */
@@ -5104,6 +5646,7 @@ const Actions = {
         <div class="field"><label>運送会社</label><select class="inp" id="sh_carrier">
           <option>ヤマト運輸</option><option>佐川急便</option><option>福山通運</option><option>西濃運輸</option><option>自社配送</option><option>その他</option></select></div>
         <div class="field span3"><label>出荷先</label><input class="inp" id="sh_to" value="${esc(c.name || '')} ${esc(c.address || '')}"></div>
+        <div class="field span3"><label>出荷担当 *</label>${Owner.pickerHtml('sh', 'shipments', { shipmentUserId: (window.__shRep && Owner.isCandidate(window.__shRep)) ? window.__shRep : Owner.defaultId() })}</div>
       </div>
 
       <div class="hr"></div>
@@ -5132,6 +5675,8 @@ const Actions = {
     const issuer = Issuer.stamp('sh');
     const sid = uid();
     const shipNo = Store.nextNo('SH', document.getElementById('sh_date').value);
+    const ownerId = Owner.pick('sh') || null;
+    if (ownerId && !Owner.isCandidate(ownerId)) return UI.toast('担当者は自組織のユーザーから選択してください', 'err');
     Store.db.shipments.unshift({
       id: sid, shipmentNo: shipNo, orderId: o.id, orderNo: o.orderNo, customerId: o.customerId, customerName: o.customerName,
       shipDate: document.getElementById('sh_date').value, status: 'instructed',
@@ -5139,6 +5684,7 @@ const Actions = {
       carrier: document.getElementById('sh_carrier').value, trackingNo: '',
       shipToName: document.getElementById('sh_to').value, shipToAddr: (Store.customer(o.customerId) || {}).address || '',
       remarks: document.getElementById('sh_remarks').value, confirmedAt: null,
+      shipmentUserId: ownerId,
       createdBy: Auth.user ? Auth.user.id : null, createdAt: new Date().toISOString()
     });
     lines.forEach(l => Store.db.shipmentLines.push({
@@ -5153,7 +5699,7 @@ const Actions = {
     const s = Store.shipment(id);
     const lines = Store.shipLines(id);
     const qty = lines.reduce((a, l) => a + l.quantity, 0);
-    UI.modal(`出荷 ${s.shipmentNo}`, `${s.customerName} ／ ${dJP(s.shipDate)}`, `
+    UI.modal(`出荷 ${s.shipmentNo}`, `${s.customerName} ／ ${dJP(s.shipDate)} ／ 出荷担当 ${Owner.display(Owner.idOf('shipments', s))}`, `
       <div class="grid g3 mb16">
         <div class="kpi" style="padding:11px 13px"><div class="k-lb">状態</div><div class="k-v" style="font-size:19px">${s.status === 'confirmed' ? '確定済' : '指示済'}</div><div class="k-f">${s.confirmedAt ? dtJP(s.confirmedAt) + ' 確定' : '未確定'}</div></div>
         <div class="kpi" style="padding:11px 13px"><div class="k-lb">合計数量</div><div class="k-v" style="font-size:19px">${num(qty)} 点</div><div class="k-f">${lines.length} 明細</div></div>
@@ -5173,7 +5719,8 @@ const Actions = {
           <button class="btn" onclick="Print.slip('${s.id}')">${ico('print', 14)} 出荷伝票</button>
           <button class="btn primary" onclick="Print.picking('${s.id}')">${ico('print', 14)} ピッキングリスト</button>` : ''}
       </div>`,
-      `${s.status === 'instructed' ? `<button class="btn" onclick="UI.closeModal()">閉じる</button>
+      `<button class="btn" onclick="UI.closeModal();Actions.ownerForm('shipments','${s.id}')">担当者変更</button>
+      ${s.status === 'instructed' ? `<button class="btn" onclick="UI.closeModal()">閉じる</button>
         <button class="btn primary" onclick="UI.closeModal();Actions.confirmShipment('${s.id}')">${ico('check', 15)} 出荷を確定する</button>` : `<button class="btn" onclick="UI.closeModal()">閉じる</button>`}`, 'wide');
   },
   confirmShipment(id) {
@@ -5188,7 +5735,7 @@ const Actions = {
       if (!s.trackingNo) s.trackingNo = 'TRK' + Math.floor(100000 + Math.random() * 899999);
       /* 在庫減算 + 受注残更新 */
       lines.forEach(l => {
-        Store.applyStock(l.itemId, -l.quantity, 'shipment', { table: 'shipments', id: s.id, no: s.shipmentNo, notes: '出荷確定' });
+        Store.applyStock(l.itemId, -l.quantity, 'shipment', { table: 'shipments', id: s.id, no: s.shipmentNo, notes: '出荷確定', ownerId: Owner.idOf('shipments', s) });
         if (l.orderLineId) { const ol = Store.db.orderLines.find(x => x.id === l.orderLineId); if (ol) ol.shippedQty += l.quantity; }
       });
       if (s.orderId) {
@@ -5270,6 +5817,15 @@ const Actions = {
         <div class="field"><label>氏名 *</label><input class="inp" id="u_name" value="${esc(u ? u.name : '')}"></div>
         <div class="field"><label>メールアドレス</label><input class="inp" id="u_mail" value="${esc(u ? u.email : '')}"></div>
         <div class="field"><label>電話番号</label><input class="inp" id="u_tel" value="${esc(u ? u.tel || '' : '')}"></div>
+        <div class="field"><label>担当者コード</label><input class="inp" id="u_code" value="${esc(u ? u.ownerCode || '' : '')}" placeholder="例：S006"></div>
+        <div class="field"><label>担当部署</label><input class="inp" id="u_dept" value="${esc(u ? u.department || '' : '')}" placeholder="例：営業部"></div>
+        <div class="field"><label>内線番号</label><input class="inp" id="u_ext" value="${esc(u ? u.extension || '' : '')}" placeholder="例：1006"></div>
+        <div class="field"><label>所属会社</label><select class="inp" id="u_company">
+          <option value="">（未設定）</option>
+          ${(Store.db.companies || []).map(c => `<option value="${esc(c.id)}"${u && u.companyId === c.id ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>所属拠点</label><select class="inp" id="u_branch">
+          <option value="">（未設定）</option>
+          ${(Store.db.branches || []).map(b => `<option value="${b.id}"${u && u.branchId === b.id ? ' selected' : ''}>${esc((Store.db.companies.find(c => c.id === b.companyId) || {}).name || '')} / ${esc(b.name)}</option>`).join('')}</select></div>
         <div class="field"><label>所属組織 *</label><select class="inp" id="u_org"${Tenant.isSystemAdmin() ? '' : ' disabled'}>
           ${(Tenant.all()).map(o => `<option value="${esc(o.id)}"${Number(u ? (u.organizationId || 1) : Tenant.id()) === Number(o.id) ? ' selected' : ''}>${esc(o.organizationName)}（${esc(o.organizationCode)}）</option>`).join('')}</select></div>
         <div class="field"><label>ロール *</label><select class="inp" id="u_role">
@@ -5306,11 +5862,18 @@ const Actions = {
       const admins = Store.db.users.filter(x => x.id !== id && x.enabled && Role.canManageUsers(x) && Number(x.organizationId) === Number(u.organizationId));
       if (Role.canManageUsers(u) && u.enabled && (!enabled || !Role.canManageUsers({ role })) && !admins.length)
         return UI.toast('有効な管理者がいなくなるため変更できません', 'err');
-      Object.assign(u, { loginId, name, email: g('u_mail'), tel: g('u_tel'), role, enabled, organizationId: orgId, updatedAt: new Date().toISOString() });
+      Object.assign(u, {
+        loginId, name, email: g('u_mail'), tel: g('u_tel'), role, enabled, organizationId: orgId,
+        ownerCode: g('u_code').trim(), department: g('u_dept').trim(), extension: g('u_ext').trim(),
+        companyId: g('u_company') || '', branchId: g('u_branch') || '',
+        updatedAt: new Date().toISOString()
+      });
       UI.toast(`ユーザー ${loginId} を更新しました`, 'ok');
     } else {
       Store.db.users.push({
         id: uid(), loginId, name, email: g('u_mail'), tel: g('u_tel'), role, organizationId: orgId,
+        ownerCode: g('u_code').trim(), department: g('u_dept').trim(), extension: g('u_ext').trim(),
+        companyId: g('u_company') || '', branchId: g('u_branch') || '',
         forcePasswordChange: true, enabled: true,
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
       });
@@ -5510,6 +6073,24 @@ const Actions = {
   saveCompany() {
     UI.toast('発行元は「会社・拠点マスタ」で管理します', 'warn');
     App.go('companies');
+  },
+  /* 担当者変更（受注・発注・入荷・出荷 共通） — 変更は監査ログに記録する */
+  ownerForm(kind, id) {
+    const rec = Owner.record(kind, id);
+    if (!rec) return UI.toast('対象の伝票が見つかりません', 'err');
+    UI.modal(`${Owner.label(kind)}の変更`, `${Owner.docNo(kind, rec)} ／ 現在：${Owner.display(Owner.idOf(kind, rec))}`, `
+      ${Owner.pickerHtml('chg', kind, rec)}
+      <div class="note amber mt12">${ico('alert', 15)} 担当者を変更すると、監査ログに「担当者変更」（変更前 → 変更後）として記録されます。</div>`,
+      `<button class="btn" onclick="UI.closeModal()">キャンセル</button><button class="btn primary" onclick="Actions.saveOwner('${kind}','${id}')">${ico('check', 15)} 変更する</button>`);
+  },
+  saveOwner(kind, id) {
+    const rec = Owner.record(kind, id);
+    if (!rec) return;
+    const next = Owner.pick('chg');
+    if (next && !Owner.isCandidate(next)) return UI.toast('担当者は自組織のユーザーから選択してください', 'err');
+    const changed = Owner.assign(kind, rec, next);
+    Store.save(); UI.closeModal(); App.repaint();
+    UI.toast(changed ? '担当者を変更しました（監査ログに記録）' : '担当者は変更されていません', changed ? 'ok' : 'warn');
   },
   exportJSON() {
     const blob = new Blob([JSON.stringify(Store.db, null, 2)], { type: 'application/json' });

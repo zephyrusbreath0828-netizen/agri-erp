@@ -74,6 +74,8 @@ Views.dashboard = () => {
       ${kpiCard({ label: '在庫評価額', icon: 'yen', bg: 'var(--green-50)', fg: 'var(--green-700)', value: money(Math.round(totalStockValue)), foot: `<span class="dot" style="background:var(--green-500)"></span>累計出荷 ${monthShip} 件` })}
     </div>
 
+    ${(typeof Owner !== 'undefined') ? Owner.rankingHtml() : ''}
+
     <div class="grid g-3-2">
       <div class="card">
         <div class="card-h">
@@ -252,10 +254,13 @@ Views.inventory = () => {
 Views.setInv = t => { invTab = t; App.repaint(); };
 
 /* ============================== 入出庫履歴 ============================== */
-let mvFilter = 'all', mvQ = '';
+let mvFilter = 'all', mvQ = '', mvOwner = '';
+/* 在庫移動の担当者（ownerId。旧データは operatorId で読み替える） */
+const mvOwnerOf = m => m.ownerId || m.operatorId || '';
 Views.movements = () => {
   const list = Store.db.movements
     .filter(m => mvFilter === 'all' || m.moveType === mvFilter)
+    .filter(m => !mvOwner || (mvOwner === '__none' ? !mvOwnerOf(m) : mvOwnerOf(m) === mvOwner))
     .filter(m => !mvQ || (m.itemName + m.refNo).toLowerCase().includes(mvQ.toLowerCase()))
     .slice(0, 300);
   const inQ = Store.db.movements.filter(m => m.moveType === 'receipt').reduce((a, m) => a + m.quantity, 0);
@@ -275,13 +280,16 @@ Views.movements = () => {
             ${[['all', 'すべて'], ['receipt', '入荷'], ['shipment', '出荷'], ['adjustment', '調整'], ['loss', 'ロス']].map(([k, l]) =>
               `<button class="tab ${mvFilter === k ? 'on' : ''}" onclick="mvFilter='${k}';App.repaint()">${l}</button>`).join('')}
           </div>
-          <div class="sp" style="position:relative;max-width:260px;flex:1">
-            <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink-400)">${ico('search', 16)}</span>
-            <input class="inp" style="padding-left:34px" placeholder="品名・伝票番号" value="${esc(mvQ)}" oninput="mvQ=this.value;App.repaint()">
+          <div class="sp hstack" style="gap:8px;justify-content:flex-end">
+            ${Owner.filterHtml('mvOwner', 'orders', mvOwner, 'mvOwner=this.value;App.repaint()')}
+            <div style="position:relative;max-width:240px;flex:1">
+              <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink-400)">${ico('search', 16)}</span>
+              <input class="inp" style="padding-left:34px" placeholder="品名・伝票番号" value="${esc(mvQ)}" oninput="mvQ=this.value;App.repaint()">
+            </div>
           </div>
         </div>
         <div class="table-wrap"><table class="tb">
-          <thead><tr><th>日時</th><th>区分</th><th>品名</th><th class="right">増減</th><th class="right">残高</th><th>参照伝票</th><th>担当</th></tr></thead>
+          <thead><tr><th>日時</th><th>区分</th><th>品名</th><th class="right">増減</th><th class="right">残高</th><th>参照伝票</th><th>担当</th><th>操作者</th></tr></thead>
           <tbody>${list.length ? list.map(m => `<tr>
             <td class="nowrap sm">${dtJP(m.movedAt)}</td>
             <td><span class="badge ${moveBadge(m.moveType)}">${moveLabel(m.moveType)}</span></td>
@@ -289,8 +297,9 @@ Views.movements = () => {
             <td class="num ${m.quantity > 0 ? '' : ''}" style="color:${m.quantity > 0 ? 'var(--green-700)' : 'var(--rose-600)'};font-weight:700">${m.quantity > 0 ? '+' : ''}${dec(m.quantity)}</td>
             <td class="num">${dec(m.balanceAfter)}</td>
             <td class="mono">${esc(m.refNo || '—')}</td>
+            <td class="sm strong">${esc(Owner.name(mvOwnerOf(m)) || '未設定')}</td>
             <td class="sm muted">${esc((Store.db.users.find(u => u.id === m.operatorId) || {}).name || '—')}</td></tr>`).join('')
-            : `<tr><td colspan="7">${emptyBox('履歴がありません', '条件を変更してください')}</td></tr>`}</tbody>
+            : `<tr><td colspan="8">${emptyBox('履歴がありません', '条件を変更してください')}</td></tr>`}</tbody>
         </table></div>
       </div>
     </div>

@@ -80,7 +80,7 @@ ok('得意先マスタに営業担当者列', cv.indexOf('営業担当者') >= 0
 T.Actions.customerForm(Store.db.customers[0].id);
 ok('得意先フォームに営業担当者', d.getElementById('c_rep') && d.getElementById('c_rep').value === Store.db.customers[0].salesRepId);
 T.Actions.orderForm();
-ok('受注フォームに営業担当者（既定=得意先担当）', d.getElementById('o_rep') && d.getElementById('o_rep').value === (Store.db.customers[0].salesRepId || ''));
+ok('受注フォームに担当営業（既定=得意先担当）', d.getElementById('ow_o') && d.getElementById('ow_o').value === (Store.db.customers[0].salesRepId || ''));
 
 console.log(fails ? ('NG: ' + fails) : 'ALL SHIP SEARCH TESTS PASSED');
 process.exit(fails ? 1 : 0);

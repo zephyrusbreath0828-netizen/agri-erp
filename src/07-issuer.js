@@ -31,7 +31,9 @@ const TPL_FIELDS = [
   { key: 'email', label: 'メール' },
   { key: 'manager', label: '担当者' },
   { key: 'invoiceNumber', label: '登録番号' },
-  { key: 'logo', label: 'ロゴ' }
+  { key: 'logo', label: 'ロゴ' },
+  /* ver 3.7: 伝票の担当者（受注・発注・入荷・出荷の担当）を印字するか */
+  { key: 'owner', label: '担当者表示' }
 ];
 
 /* レイアウト既定値（旧テンプレートはこの値で補完＝既存テンプレート移行対応） */

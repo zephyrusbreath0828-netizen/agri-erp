@@ -83,6 +83,17 @@ const SEED_USERS = [
   ['usr010', 'afarm',    '青木 大地', 'afarm@agri-erp.local',    '090-2222-3333', 'org_admin', TEMP_HASH_OFFICE, 2, false]
 ];
 
+/* 担当者管理（ver 3.7）: ユーザーに担当者コード・部署・内線・所属会社/拠点を付与する。
+   担当者コードは担当者候補プルダウンの並び順と検索に使用する。 */
+const SEED_USER_PROFILE = {
+  usr001: { ownerCode: 'S001', department: '管理部',     extension: '1001', companyId: 'co001', branchId: 'br001' },
+  usr002: { ownerCode: 'S002', department: '事務部',     extension: '1002', companyId: 'co001', branchId: 'br001' },
+  usr003: { ownerCode: 'S003', department: '物流部',     extension: '1003', companyId: 'co001', branchId: 'br001' },
+  usr004: { ownerCode: 'S004', department: '営業部',     extension: '1004', companyId: 'co001', branchId: 'br001' },
+  usr005: { ownerCode: 'S005', department: '営業部',     extension: '1005', companyId: 'co001', branchId: 'br001' },
+  usr010: { ownerCode: 'A001', department: '営農部',     extension: '2001', companyId: 'co010', branchId: 'br010' }
+};
+
 /* ------------------------------ 会社・拠点・帳票テンプレート（v3 で新設） ------------------------------
    会社マスタは複数登録できる（グループ会社・拠点対応）。既存の settings.company（単一会社設定）は
    Store.migrateIssuerMasters() が companies へ自動移行する。 */
@@ -148,11 +159,11 @@ function buildSeed() {
   SEED_ORGANIZATIONS.forEach(a => db.organizations.push({
     id: a[0], organizationCode: a[1], organizationName: a[2], isActive: true, createdAt: nowIso, updatedAt: nowIso
   }));
-  SEED_USERS.forEach(a => db.users.push({
+  SEED_USERS.forEach(a => db.users.push(Object.assign({
     id: a[0], loginId: a[1], name: a[2], email: a[3], tel: a[4], role: a[5],
     passwordHash: a[6], forcePasswordChange: true, enabled: true, createdAt: nowIso, updatedAt: nowIso,
     organizationId: a[7] || DEFAULT_ORG_ID, isSystemAdmin: !!a[8]
-  }));
+  }, { ownerCode: '', department: '', extension: '', companyId: '', branchId: '' }, SEED_USER_PROFILE[a[0]] || {})));
 
   /* ---- 会社マスタ・拠点マスタ・帳票テンプレート ---- */
   SEED_COMPANIES.forEach(a => db.companies.push({
@@ -182,7 +193,7 @@ function buildSeed() {
       id: uid(), movedAt: addDays(new Date(), dayOffset).toISOString(),
       moveDate: todayStr(addDays(new Date(), dayOffset)), moveType: type, itemId, itemName: it.name,
       quantity: qty, balanceAfter: it.stock, refTable, refId, refNo,
-      operatorId: op || 'usr001', notes: ''
+      operatorId: op || 'usr001', ownerId: op || 'usr001', notes: ''
     });
   };
 
@@ -206,7 +217,7 @@ function buildSeed() {
     db.receipts.push({
       id: rid, receiptNo: rno, poId: null, supplierId: supId, supplierName: db.suppliers.find(s => s.id === supId).name,
       receiptDate: todayStr(addDays(new Date(), off)), status: 'confirmed', subtotal: sub, tax: Math.round(sub * .08), total: sub + Math.round(sub * .08),
-      remarks: '', receivedBy: 'usr002', createdAt: new Date().toISOString()
+      remarks: '', receivedBy: 'usr002', receiptUserId: hi % 2 ? 'usr002' : 'usr004', createdAt: new Date().toISOString()
     });
     rl.forEach(l => {
       db.receiptLines.push(l);
@@ -226,9 +237,10 @@ function buildSeed() {
         dueDate: todayStr(addDays(new Date(), dueOff)), notes: '' };
     });
     const tax = Math.round(sub * .08);
+    const repId = (db.customers.find(c => c.id === custId) || {}).salesRepId || null;
     db.orders.push({
       id: oid, orderNo: ono, customerId: custId, customerName: db.customers.find(c => c.id === custId).name,
-      salesRepId: (db.customers.find(c => c.id === custId) || {}).salesRepId || null,
+      salesRepId: repId, salesUserId: repId,
       orderDate: todayStr(addDays(new Date(), orderOff)), dueDate: todayStr(addDays(new Date(), dueOff)),
       shipDate: todayStr(addDays(new Date(), dueOff)), status: status || 'received',
       subtotal: sub, tax, total: sub + tax, remarks: '', createdBy: 'usr002', createdAt: new Date().toISOString()
@@ -266,7 +278,7 @@ function buildSeed() {
       trackingNo: status === 'confirmed' ? 'TRK' + (100000 + idx * 37) : '',
       shipToName: o.customerName, shipToAddr: db.customers.find(c => c.id === o.customerId).address,
       remarks: '', confirmedAt: status === 'confirmed' ? addDays(new Date(), shipOff).toISOString() : null,
-      createdBy: 'usr003', createdAt: new Date().toISOString()
+      createdBy: 'usr003', shipmentUserId: 'usr003', createdAt: new Date().toISOString()
     });
     lines.forEach(l => db.shipmentLines.push(l));
     return sid;
@@ -301,6 +313,7 @@ function buildSeed() {
       supplierId: supId, supplierName: db.suppliers.find(s => s.id === supId).name,
       orderDate: todayStr(addDays(new Date(), orderOff)), expectedDate: todayStr(addDays(new Date(), expOff)),
       status: status || 'ordered', subtotal: sub, tax, total: sub + tax, remarks: '', createdBy: 'usr002',
+      purchaseUserId: idx % 2 ? 'usr004' : 'usr002',
       createdAt: new Date().toISOString()
     });
     pls.forEach(l => db.poLines.push(l));
@@ -371,6 +384,7 @@ function seedAssignOrganizations(db) {
     id: 'ord010', orderNo: 'AF-20261030-0001', customerId: 'cus010', customerName: 'Ａファーム取引先商事',
     orderDate: TODAY, dueDate: TODAY, shipDate: TODAY, status: 'received', subtotal: 8400, tax: 672, total: 9072,
     remarks: 'A-FARM 組織のサンプル受注', companyId: 'co010', branch1Id: 'br010', branch2Id: null,
+    salesUserId: 'usr010', purchaseUserId: null, receiptUserId: null, shipmentUserId: null,
     organizationId: org2, createdBy: 'usr010', createdAt: now, updatedAt: now
   });
   db.orderLines.push({
@@ -382,7 +396,7 @@ function seedAssignOrganizations(db) {
     customerId: 'cus010', customerName: 'Ａファーム取引先商事', shipDate: TODAY, status: 'confirmed',
     carrier: '佐川急便', trackingNo: '', shipToName: 'Ａファーム取引先商事', shipToAddr: '徳島県徳島市中央9-9-9',
     remarks: '', companyId: 'co010', branch1Id: 'br010', branch2Id: null, organizationId: org2,
-    createdBy: 'usr010', createdAt: now, updatedAt: now
+    shipmentUserId: 'usr010', createdBy: 'usr010', createdAt: now, updatedAt: now
   });
   db.shipmentLines.push({
     id: 'shl010', shipmentId: 'shp010', orderLineId: 'odl010', itemId: 'itm010', itemName: 'Ａファーム トマト 5kg',
@@ -458,6 +472,7 @@ const Store = {
     if (!t.paper) t.paper = 'portrait';
     if (t.watermark === undefined) t.watermark = true;
     if (t.footer === undefined) t.footer = true;
+    if (t.owner === undefined) t.owner = true;   /* ver 3.7: 帳票への担当者表示（既定 ON） */
   });
     const now = new Date().toISOString();
     if (!db.companies.length) {
@@ -530,7 +545,8 @@ const Store = {
       id: uid(), movedAt: new Date().toISOString(), moveDate: TODAY, moveType,
       itemId, itemName: it.name, quantity: qty, balanceAfter: it.stock,
       refTable: ref.table || '', refId: ref.id || '', refNo: ref.no || '',
-      operatorId: Auth.user ? Auth.user.id : 'system', notes: ref.notes || ''
+      operatorId: Auth.user ? Auth.user.id : 'system',
+      ownerId: ref.ownerId || (Auth.user ? Auth.user.id : null), notes: ref.notes || ''
     };
     this.db.movements.unshift(mv);
     return mv;

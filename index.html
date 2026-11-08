@@ -464,6 +464,19 @@ table.tb tfoot td{background:var(--ink-50);border-top:2px solid var(--ink-200)}
   .sheet{box-shadow:none;margin:0;page-break-after:always}
   .sheet:last-child{page-break-after:auto}
 }
+
+/* ---------- 担当者管理（ver 3.7） ---------- */
+.opick{display:flex;flex-direction:column;gap:5px}
+.opick .inp{padding:8px 9px}
+.opick select.inp{font-weight:700}
+.rank-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed var(--ink-100)}
+.rank-row:last-child{border-bottom:none}
+.rank-no{width:22px;height:22px;border-radius:7px;background:var(--ink-100);color:var(--ink-600);display:grid;place-items:center;font-size:11px;font-weight:800;flex:0 0 22px}
+.rank-no.top{background:var(--green-600);color:#fff}
+.rank-nm{flex:1;min-width:0;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank-v{font-weight:800;font-size:13px}
+.rank-v small{font-size:10px;font-weight:600;color:var(--ink-500);margin-left:2px}
+@media(max-width:620px){.opick select.inp{font-size:13px}}
 </style>
 </head>
 <body>
@@ -623,6 +636,7 @@ table.tb tfoot td{background:var(--ink-50);border-top:2px solid var(--ink-200)}
 <script src="src/07-issuer.js"></script>
 <script src="src/05-print.js"></script>
 <script src="src/08-tpl-editor.js"></script>
+<script src="src/09-owner.js"></script>
 <script src="src/06-app.js"></script>
 <!--#B#-->
 </body>

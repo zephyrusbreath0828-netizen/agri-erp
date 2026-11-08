@@ -3,15 +3,24 @@
    ========================================================================== */
 
 /* ============================== 受注管理 ============================== */
-let ordTab = 'list', ordQ = '', ordStat = 'all';
+let ordTab = 'list', ordQ = '', ordStat = 'all', ordOwner = '', ordSort = 'date';
 Views.orders = () => {
   const all = Store.db.orders.slice().sort((a, b) => b.orderDate.localeCompare(a.orderDate) || b.orderNo.localeCompare(a.orderNo));
   const backlog = Store.orderBacklog();
   const overdue = backlog.filter(r => r.overdue);
-  const tabList = ordTab === 'backlog' ? all.filter(o => Store.orderRemaining(o) > 0) : all;
-  const list = tabList
+  /* 担当者単位の閲覧制御（一般ユーザーかつ設定が「自分の担当のみ」のとき） */
+  const scoped = Owner.visible('orders', all);
+  const tabList = (ordTab === 'backlog' ? scoped.filter(o => Store.orderRemaining(o) > 0) : scoped)
     .filter(o => ordStat === 'all' || o.status === ordStat)
+    .filter(o => Owner.match('orders', o, ordOwner))
     .filter(o => !ordQ || (o.orderNo + o.customerName).toLowerCase().includes(ordQ.toLowerCase()));
+  const ordSorters = {
+    date:   (a, b) => b.orderDate.localeCompare(a.orderDate) || b.orderNo.localeCompare(a.orderNo),
+    owner:  (a, b) => Owner.name(Owner.idOf('orders', a)).localeCompare(Owner.name(Owner.idOf('orders', b)), 'ja') || b.orderDate.localeCompare(a.orderDate),
+    amount: (a, b) => Number(b.total) - Number(a.total),
+    due:    (a, b) => String(a.dueDate).localeCompare(String(b.dueDate))
+  };
+  const list = tabList.slice().sort(ordSorters[ordSort] || ordSorters.date);
 
   const rows = list.map(o => {
     const rem = Store.orderRemaining(o);
@@ -19,6 +28,7 @@ Views.orders = () => {
     return `<tr class="${late ? 'row-danger' : ''}">
       <td class="mono">${esc(o.orderNo)}<div class="tiny muted">${dJP(o.orderDate)}</div></td>
       <td class="strong">${esc(o.customerName)}</td>
+      <td class="sm">${Owner.name(Owner.idOf('orders', o)) || '<span class="muted">未設定</span>'}</td>
       <td class="nowrap">${dJP(o.dueDate)}${late ? ' <span class="badge rose">超過</span>' : rem > 0 ? `<div class="tiny muted">${relDay(o.dueDate)}</div>` : ''}</td>
       <td class="num">${money(o.total)}</td>
       <td class="num">${rem > 0 ? `<span style="color:var(--rose-600);font-weight:700">${dec(rem)}</span>` : '<span class="badge green">完納</span>'}</td>
@@ -58,11 +68,18 @@ Views.orders = () => {
             ${Object.entries(STATUS).filter(([k]) => ['received','partial','shipped','completed','cancelled'].includes(k))
               .map(([k, v]) => `<option value="${k}"${ordStat === k ? ' selected' : ''}>${v[0]}</option>`).join('')}
           </select>
+          ${Owner.filterHtml('ordOwner', 'orders', ordOwner, 'ordOwner=this.value;App.repaint()')}
+          <select class="inp" style="max-width:160px" onchange="ordSort=this.value;App.repaint()">
+            <option value="date"${ordSort === 'date' ? ' selected' : ''}>並び替え：受注日</option>
+            <option value="due"${ordSort === 'due' ? ' selected' : ''}>並び替え：納期</option>
+            <option value="owner"${ordSort === 'owner' ? ' selected' : ''}>並び替え：担当営業</option>
+            <option value="amount"${ordSort === 'amount' ? ' selected' : ''}>並び替え：金額</option>
+          </select>
           <div class="sp"><button class="btn sm primary" onclick="Actions.orderForm()">${ico('plus', 14)} 受注登録</button></div>
         </div>
         <div class="table-wrap"><table class="tb">
-          <thead><tr><th>受注番号</th><th>得意先</th><th>納期</th><th class="right">金額</th><th class="right">受注残</th><th>状態</th><th></th></tr></thead>
-          <tbody>${rows || `<tr><td colspan="7">${emptyBox('受注がありません', '新規受注を登録してください')}</td></tr>`}</tbody>
+          <thead><tr><th>受注番号</th><th>得意先</th><th>担当営業</th><th>納期</th><th class="right">金額</th><th class="right">受注残</th><th>状態</th><th></th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="8">${emptyBox('受注がありません', '新規受注を登録してください')}</td></tr>`}</tbody>
         </table></div>
       </div>
     </div>
@@ -119,12 +136,14 @@ Views.customers = () => {
 };
 
 /* ============================== 発注管理 ============================== */
-let poTab = 'list', poQ = '';
+let poTab = 'list', poQ = '', poOwner = '';
 Views.purchase = () => {
-  const all = Store.db.purchaseOrders.slice().sort((a, b) => b.orderDate.localeCompare(a.orderDate));
+  const scoped = Owner.visible('purchaseOrders', Store.db.purchaseOrders);
+  const all = scoped.slice().sort((a, b) => b.orderDate.localeCompare(a.orderDate));
   const backlog = Store.poBacklog();
   const overdue = backlog.filter(r => r.overdue);
   const list = (poTab === 'backlog' ? all.filter(p => Store.poRemaining(p) > 0) : all)
+    .filter(p => Owner.match('purchaseOrders', p, poOwner))
     .filter(p => !poQ || (p.poNo + p.supplierName).toLowerCase().includes(poQ.toLowerCase()));
 
   return `<div class="vstack" style="gap:16px">
@@ -148,16 +167,18 @@ Views.purchase = () => {
             <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink-400)">${ico('search', 16)}</span>
             <input class="inp" style="padding-left:34px" placeholder="発注番号・仕入先" value="${esc(poQ)}" oninput="poQ=this.value;App.repaint()">
           </div>
+          ${Owner.filterHtml('poOwner', 'purchaseOrders', poOwner, 'poOwner=this.value;App.repaint()')}
           <div class="sp"><button class="btn sm primary" onclick="Actions.newPOFor('')">${ico('plus', 14)} 発注登録</button></div>
         </div>
         <div class="table-wrap"><table class="tb">
-          <thead><tr><th>発注番号</th><th>仕入先</th><th>発注日</th><th>入荷予定</th><th class="right">金額</th><th class="right">発注残</th><th>状態</th><th></th></tr></thead>
+          <thead><tr><th>発注番号</th><th>仕入先</th><th>発注担当</th><th>発注日</th><th>入荷予定</th><th class="right">金額</th><th class="right">発注残</th><th>状態</th><th></th></tr></thead>
           <tbody>${list.length ? list.map(p => {
             const rem = Store.poRemaining(p);
             const late = p.expectedDate < TODAY && rem > 0;
             return `<tr class="${late ? 'row-warn' : ''}">
               <td class="mono">${esc(p.poNo)}</td>
               <td class="strong">${esc(p.supplierName)}</td>
+              <td class="sm">${Owner.name(Owner.idOf('purchaseOrders', p)) || '<span class="muted">未設定</span>'}</td>
               <td class="sm">${dJP(p.orderDate)}</td>
               <td class="nowrap">${dJP(p.expectedDate)}${late ? '<div><span class="badge amber">入荷遅延</span></div>' : rem > 0 ? `<div class="tiny muted">${relDay(p.expectedDate)}</div>` : ''}</td>
               <td class="num">${money(p.total)}</td>
@@ -167,7 +188,7 @@ Views.purchase = () => {
                 <button class="btn xs" onclick="Actions.poDetail('${p.id}')">詳細</button>
                 ${rem > 0 ? `<button class="btn xs primary" onclick="Actions.receiveForm('${p.id}')">入荷</button>` : ''}
               </div></td></tr>`;
-          }).join('') : `<tr><td colspan="8">${emptyBox('発注がありません', '発注点割れの品目から発注できます')}</td></tr>`}</tbody>
+          }).join('') : `<tr><td colspan="9">${emptyBox('発注がありません', '発注点割れの品目から発注できます')}</td></tr>`}</tbody>
         </table></div>
       </div>
     </div>
@@ -193,8 +214,10 @@ Views.purchase = () => {
 };
 
 /* ============================== 入荷処理 ============================== */
+let rcOwner = '';
 Views.receipts = () => {
-  const list = Store.db.receipts.slice().sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
+  const scoped = Owner.visible('receipts', Store.db.receipts);
+  const list = scoped.filter(r => Owner.match('receipts', r, rcOwner)).slice().sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
   const todayIn = list.filter(r => r.receiptDate === TODAY);
   const monthQty = Store.db.movements.filter(m => m.moveType === 'receipt' && m.moveDate.slice(0, 7) === TODAY.slice(0, 7))
     .reduce((a, m) => a + m.quantity, 0);
@@ -207,20 +230,24 @@ Views.receipts = () => {
     </div>
     <div class="note green">${ico('check', 15)} <b>入荷処理</b>を確定すると、対象商品・資材の現在庫に自動で加算され、入出庫履歴に記録されます。</div>
     <div class="card">
-      <div class="card-h"><h2>${ico('inbox', 16)} 入荷履歴</h2>
-        <div class="sp"><button class="btn sm primary" onclick="Actions.receiveForm('')">${ico('plus', 14)} 入荷登録</button></div></div>
+      <div class="card-h"><h2>${ico('inbox', 16)} 入荷履歴</h2><span class="sub">${esc(Owner.scopeLabel())}</span>
+        <div class="sp hstack" style="gap:8px">
+          ${Owner.filterHtml('rcOwner', 'receipts', rcOwner, 'rcOwner=this.value;App.repaint()')}
+          <button class="btn sm primary" onclick="Actions.receiveForm('')">${ico('plus', 14)} 入荷登録</button>
+        </div></div>
       <div class="card-b tight"><div class="table-wrap"><table class="tb">
-        <thead><tr><th>入荷番号</th><th>入荷日</th><th>仕入先</th><th>発注番号</th><th class="right">明細</th><th class="right">金額</th><th>状態</th><th></th></tr></thead>
+        <thead><tr><th>入荷番号</th><th>入荷日</th><th>仕入先</th><th>受入担当</th><th>発注番号</th><th class="right">明細</th><th class="right">金額</th><th>状態</th><th></th></tr></thead>
         <tbody>${list.length ? list.map(r => `<tr>
           <td class="mono">${esc(r.receiptNo)}</td>
           <td class="sm">${dJP(r.receiptDate)}</td>
           <td class="strong">${esc(r.supplierName)}</td>
+          <td class="sm">${Owner.name(Owner.idOf('receipts', r)) || '<span class="muted">未設定</span>'}</td>
           <td class="mono">${esc((Store.db.purchaseOrders.find(p => p.id === r.poId) || {}).poNo || '直接入荷')}</td>
           <td class="num">${Store.receiptLines(r.id).length}</td>
           <td class="num">${money(r.total)}</td>
           <td><span class="badge green">入荷確定</span></td>
           <td class="right"><button class="btn xs" onclick="Actions.receiptDetail('${r.id}')">明細</button></td></tr>`).join('')
-          : `<tr><td colspan="8">${emptyBox('入荷履歴がありません', '発注一覧から入荷処理を実行できます')}</td></tr>`}</tbody>
+          : `<tr><td colspan="9">${emptyBox('入荷履歴がありません', '発注一覧から入荷処理を実行できます')}</td></tr>`}</tbody>
       </table></div></div>
     </div>
   </div>`;
@@ -330,6 +357,7 @@ const shipFilterDefault = () => {
     to: TODAY,
     customerId: '',
     salesRepId: '',
+    ownerId: '',
     status: SHIP_STATE_ALL,
     q: ''
   };
@@ -357,6 +385,7 @@ const shipFiltered = () => {
     if (f.to && s.shipDate > f.to) return false;
     if (f.customerId && s.customerId !== f.customerId) return false;
     if (f.salesRepId && Store.shipmentRepId(s) !== f.salesRepId) return false;
+    if (!Owner.match('shipments', s, f.ownerId)) return false;
     if (f.status !== SHIP_STATE_ALL && s.status !== f.status) return false;
     if (q && !(String(s.shipmentNo || '') + String(s.customerName || '') + String(s.orderNo || '')).toLowerCase().includes(q)) return false;
     return true;
@@ -367,9 +396,9 @@ const shipFiltered = () => {
 const shipExportCsv = () => {
   const list = shipFiltered();
   if (!list.length) return UI.toast('出力できる出荷データがありません', 'warn');
-  const head = ['出荷日', '出荷番号', '得意先', '営業担当者', '受注番号', '数量', '金額(税抜)', '運送会社', '追跡番号', '出荷状態'];
+  const head = ['出荷日', '出荷番号', '得意先', '営業担当者', '出荷担当', '受注番号', '数量', '金額(税抜)', '運送会社', '追跡番号', '出荷状態'];
   const rows = list.map(s => [
-    s.shipDate, s.shipmentNo, s.customerName, Store.salesRepName(Store.shipmentRepId(s)) || '—', s.orderNo || '',
+    s.shipDate, s.shipmentNo, s.customerName, Store.salesRepName(Store.shipmentRepId(s)) || '—', Owner.name(Owner.idOf('shipments', s)) || '未設定', s.orderNo || '',
     Store.shipLines(s.id).reduce((a, l) => a + l.quantity, 0), Math.round(Store.shipmentAmount(s)),
     s.carrier || '', s.trackingNo || '', (SHIP_STATE[s.status] || [s.status, ''])[0]
   ]);
@@ -434,6 +463,9 @@ Views.shipHistory = () => {
               ${reps.map(u => `<option value="${esc(u.id)}"${repSel === u.id ? ' selected' : ''}>${esc(u.name)}${Role.label(u) ? '（' + Role.label(u) + '）' : ''}</option>`).join('')}
             </select>
           </div>
+          <div class="field"><label>出荷担当</label>
+            ${Owner.filterHtml('shOwner', 'shipments', f.ownerId, "shipSet('ownerId', this.value)")}
+          </div>
           <div class="field"><label>出荷状態</label>
             <select class="inp" onchange="shipSet('status', this.value)">
               <option value="${SHIP_STATE_ALL}"${f.status === SHIP_STATE_ALL ? ' selected' : ''}>すべての状態</option>
@@ -457,6 +489,7 @@ Views.shipHistory = () => {
           ${condChip('期間', f.from || f.to ? `${f.from || '指定なし'} 〜 ${f.to || '指定なし'}` : '', "shipSet('from','');shipSet('to','')")}
           ${condChip('得意先', (cs.find(c => c.id === custSel) || {}).name || '', "shipSet('customerId','')")}
           ${condChip('営業担当者', Store.salesRepName(repSel), "shipSet('salesRepId','')")}
+          ${condChip('出荷担当', f.ownerId === '__none' ? '（未設定）' : Owner.name(f.ownerId), "shipSet('ownerId','')")}
           ${condChip('出荷状態', f.status === SHIP_STATE_ALL ? '' : (SHIP_STATE[f.status] || [f.status])[0], `shipSet('status','${SHIP_STATE_ALL}')`)}
           ${condChip('キーワード', f.q, "shipSet('q','')")}
           <span class="sp tiny muted">該当 <b>${num(list.length)}</b> 件</span>
@@ -468,7 +501,7 @@ Views.shipHistory = () => {
       <div class="card-h"><h2>${ico('history', 16)} 出荷検索結果</h2><span class="sub">出荷日の新しい順</span>
         <div class="sp"><span class="badge gray">${num(list.length)} 件</span></div></div>
       <div class="card-b tight"><div class="table-wrap"><table class="tb">
-        <thead><tr><th>出荷日</th><th>出荷番号</th><th>得意先</th><th>営業担当者</th><th>受注番号</th><th class="right">数量</th><th class="right">金額(税抜)</th><th>運送会社</th><th>出荷状態</th><th></th></tr></thead>
+        <thead><tr><th>出荷日</th><th>出荷番号</th><th>得意先</th><th>営業担当者</th><th>出荷担当</th><th>受注番号</th><th class="right">数量</th><th class="right">金額(税抜)</th><th>運送会社</th><th>出荷状態</th><th></th></tr></thead>
         <tbody>${list.length ? list.map(s => {
           const st = SHIP_STATE[s.status] || [s.status, 'gray'];
           const rep = Store.salesRepName(Store.shipmentRepId(s));
@@ -477,6 +510,7 @@ Views.shipHistory = () => {
             <td class="mono">${esc(s.shipmentNo)}</td>
             <td class="strong">${esc(s.customerName)}</td>
             <td class="sm">${rep ? esc(rep) : '<span class="muted">—</span>'}</td>
+            <td class="sm">${Owner.name(Owner.idOf('shipments', s)) || '<span class="muted">未設定</span>'}</td>
             <td class="mono">${esc(s.orderNo || '—')}</td>
             <td class="num">${num(Store.shipLines(s.id).reduce((a, l) => a + l.quantity, 0))}</td>
             <td class="num">${money(Math.round(Store.shipmentAmount(s)))}</td>
@@ -489,9 +523,9 @@ Views.shipHistory = () => {
                 : s.status === 'instructed' ? `<button class="btn xs primary" onclick="Actions.confirmShipment('${s.id}')">確定</button>` : ''}
             </div></td></tr>`;
         }).join('')
-          : `<tr><td colspan="10">${emptyBox('条件に一致する出荷がありません', '期間・得意先・営業担当者・出荷状態を変更してください')}</td></tr>`}</tbody>
+          : `<tr><td colspan="11">${emptyBox('条件に一致する出荷がありません', '期間・得意先・営業担当者・出荷担当・出荷状態を変更してください')}</td></tr>`}</tbody>
         ${list.length ? `<tfoot><tr>
-          <td colspan="5" class="right strong">合計</td>
+          <td colspan="6" class="right strong">合計</td>
           <td class="num strong">${num(qty)}</td>
           <td class="num strong">${money(Math.round(amt))}</td>
           <td colspan="3"></td></tr></tfoot>` : ''}
@@ -510,6 +544,8 @@ Views.users = () => {
   const cnt = r => list.filter(u => roleOf(u) === r).length;
   const enabledCnt = r => list.filter(u => roleOf(u) === r && u.enabled).length;
   const canEdit = u => sys || Number(u.organizationId) === Tenant.id();
+  const brName = u => (Store.db.branches.find(b => b.id === u.branchId) || {}).name || '—';
+  const coName = u => (Store.db.companies.find(c => c.id === u.companyId) || {}).name || '—';
   const isLocked = u => {
     const s = (Store.db.loginSecurity || {})[String(u.loginId).toLowerCase()];
     return !!(s && s.lockedUntil && new Date(s.lockedUntil) > new Date());
@@ -529,19 +565,20 @@ Views.users = () => {
       <div class="card-h"><h2>${ico('user', 16)} ユーザー管理</h2><span class="sub">ユーザーID・パスワード認証のアカウント</span>
         <div class="sp"><button class="btn sm primary" onclick="Actions.userForm()">${ico('plus', 14)} ユーザー登録</button></div></div>
       <div class="card-b tight"><div class="table-wrap"><table class="tb">
-        <thead><tr><th>ユーザーID</th>${sys ? '<th>組織</th>' : ''}<th>氏名</th><th>メールアドレス</th><th>電話番号</th><th>ロール</th><th>利用可能機能</th><th>最終ログイン日時</th><th>パスワード変更要求</th><th>状態</th><th></th></tr></thead>
+        <thead><tr><th>ユーザーID</th>${sys ? '<th>組織</th>' : ''}<th>氏名</th><th>担当者コード</th><th>所属会社／拠点</th><th>担当部署</th><th>メールアドレス</th><th>電話番号／内線</th><th>ロール</th><th>最終ログイン日時</th><th>状態</th><th></th></tr></thead>
         <tbody>${list.map(u => {
           const funcs = MENU.flatMap(g => g.items).filter(i => i.roles.includes(roleOf(u)) && (!i.sysOnly || sys)).length;
           return `<tr>
             <td class="mono">${esc(u.loginId)}</td>
             ${sys ? `<td class="sm">${esc(Tenant.name(u.organizationId))}</td>` : ''}
             <td><div class="hstack" style="gap:9px"><span class="av" style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;background:${(ROLES[roleOf(u)] || {}).av}">${esc(u.name.charAt(0))}</span><span class="strong">${esc(u.name)}</span></div></td>
+            <td class="mono">${esc(u.ownerCode || '—')}</td>
+            <td class="tiny">${esc(coName(u))}<div class="muted">${esc(brName(u))}</div></td>
+            <td class="sm">${esc(u.department || '—')}</td>
             <td class="mono">${esc(u.email)}</td>
-            <td class="sm">${esc(u.tel || '—')}</td>
-            <td><span class="badge ${(ROLES[roleOf(u)] || {}).color || 'gray'}">${esc(Role.label(u))}</span></td>
-            <td class="sm muted">${funcs} 機能</td>
+            <td class="sm">${esc(u.tel || '—')}${u.extension ? `<div class="tiny muted">内線 ${esc(u.extension)}</div>` : ''}</td>
+            <td><span class="badge ${(ROLES[roleOf(u)] || {}).color || 'gray'}">${esc(Role.label(u))}</span><div class="tiny muted">${funcs} 機能</div></td>
             <td class="sm nowrap mono">${u.lastLoginAt ? dtJP(u.lastLoginAt) : '—'}</td>
-            <td class="nowrap">${u.forcePasswordChange ? '<span class="badge amber">要求中</span>' : '<span class="muted">—</span>'}</td>
             <td class="nowrap">${u.enabled ? '<span class="badge green">有効</span>' : '<span class="badge gray">無効</span>'}${isLocked(u) ? ' <span class="badge rose">ロック中</span>' : ''}${u.forcePasswordChange ? ' <span class="badge amber">初回パスワード</span>' : ''}</td>
             <td class="right"><div class="tb-act">${canEdit(u) ? `
               <button class="btn xs" onclick="Actions.userForm('${u.id}')">編集</button>
@@ -727,6 +764,122 @@ Views.settings = () => {
             ${ready ? '<span class="badge green">準備済</span>' : '<span class="badge gray">拡張枠</span>'}</div>
           <p class="tiny muted mt8" style="line-height:1.7">${desc}</p></div>`).join('')}
       </div></div>
+    </div>
+  </div>`;
+};
+
+/* ==========================================================================
+   担当者別実績（ver 3.7）
+   受注・発注・入荷・出荷を担当者（users.id）単位で期間集計する。
+   ========================================================================== */
+let orF = null;
+const orDefault = () => {
+  const d = new Date();
+  return { from: todayStr(new Date(d.getFullYear(), d.getMonth(), 1)), to: TODAY };
+};
+const orFilters = () => (orF = orF || orDefault());
+const orSet = (k, v) => { orFilters()[k] = v; App.repaint(); };
+const orQuick = p => {
+  const d = new Date(), y = d.getFullYear(), m = d.getMonth(), f = orFilters();
+  if (p === 'month') { f.from = todayStr(new Date(y, m, 1)); f.to = TODAY; }
+  else if (p === 'lastMonth') { f.from = todayStr(new Date(y, m - 1, 1)); f.to = todayStr(new Date(y, m, 0)); }
+  else if (p === 'year') { f.from = `${y}-01-01`; f.to = TODAY; }
+  else if (p === 'all') { f.from = ''; f.to = ''; }
+  App.repaint();
+};
+const orRows = () => Owner.stats(orFilters().from, orFilters().to);
+const orExportCsv = () => {
+  const rows = orRows();
+  if (!rows.length) return UI.toast('出力できる実績がありません', 'warn');
+  const head = ['担当者コード', '担当者名', '担当部署', '受注件数', '受注金額', '発注件数', '発注金額', '入荷件数', '入荷数量', '出荷件数', '出荷数量', '出荷金額'];
+  const body = rows.map(r => [r.ownerCode, r.name, r.department, r.orderCnt, Math.round(r.orderAmt), r.poCnt, Math.round(r.poAmt), r.rcvCnt, r.rcvQty, r.shpCnt, r.shpQty, Math.round(r.shpAmt)]);
+  const csv = '\uFEFF' + [head, ...body].map(r => r.map(c => `"${String(c == null ? '' : c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `agri-erp-owners-${TODAY}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
+  UI.toast(`担当者別実績 ${rows.length} 件をCSVに書き出しました`, 'ok');
+};
+
+Views.ownerReport = () => {
+  const f = orFilters();
+  const rows = orRows();
+  const sum = k => rows.reduce((a, r) => a + Number(r[k] || 0), 0);
+  const rank = rows.filter(r => !r.unassigned).slice().sort((a, b) => b.orderAmt - a.orderAmt);
+  const top = rank[0];
+  const scopeNote = Owner.scopeMine()
+    ? '現在は「自分の担当案件のみ」表示です（一般ユーザー）。管理者はシステム設定で「自組織すべて」に変更できます。'
+    : `表示範囲：${Owner.scopeLabel()}`;
+  return `<div class="vstack" style="gap:16px">
+    <div class="grid g4">
+      ${kpiCard({ label: '受注件数', icon: 'file', bg: 'var(--sky-100)', fg: 'var(--sky-600)', value: num(sum('orderCnt')), unit: '件', foot: `受注金額 ${money(Math.round(sum('orderAmt')))}` })}
+      ${kpiCard({ label: '出荷件数', icon: 'truck', bg: 'var(--green-100)', fg: 'var(--green-700)', value: num(sum('shpCnt')), unit: '件', foot: `出荷金額 ${money(Math.round(sum('shpAmt')))}` })}
+      ${kpiCard({ label: '発注件数', icon: 'cart', bg: 'var(--violet-50)', fg: 'var(--violet-600)', value: num(sum('poCnt')), unit: '件', foot: `発注金額 ${money(Math.round(sum('poAmt')))}` })}
+      ${kpiCard({ label: '入荷件数', icon: 'inbox', bg: 'var(--amber-100)', fg: 'var(--amber-600)', value: num(sum('rcvCnt')), unit: '件', foot: `入荷数量 ${num(sum('rcvQty'))} 点` })}
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h2>${ico('trend', 16)} 担当者別実績</h2><span class="sub">期間内の担当者ごとの件数・金額</span>
+        <div class="sp hstack" style="gap:8px">
+          <button class="btn sm" onclick="orExportCsv()">${ico('excel', 14)} CSV出力</button>
+        </div></div>
+      <div class="card-b">
+        <div class="filter-grid">
+          <div class="field span2"><label>期間</label>
+            <div class="hstack" style="gap:6px;flex-wrap:nowrap">
+              <input class="inp" type="date" value="${esc(f.from)}" onchange="orSet('from', this.value)">
+              <span class="muted sm">〜</span>
+              <input class="inp" type="date" value="${esc(f.to)}" onchange="orSet('to', this.value)">
+            </div>
+          </div>
+          <div class="field"><label>クイック期間</label>
+            <div class="hstack" style="gap:6px;flex-wrap:wrap">
+              <button class="chip" onclick="orQuick('month')">今月</button>
+              <button class="chip" onclick="orQuick('lastMonth')">先月</button>
+              <button class="chip" onclick="orQuick('year')">今年</button>
+              <button class="chip" onclick="orQuick('all')">全期間</button>
+            </div>
+          </div>
+          <div class="field"><label>表示範囲</label>
+            <div class="hstack" style="gap:6px">
+              <button class="chip ${Owner.scopeMode() === 'mine' ? 'on' : ''}" onclick="Owner.setScope('mine');App.repaint()">自分の担当のみ</button>
+              <button class="chip ${Owner.scopeMode() === 'org' ? 'on' : ''}" onclick="Owner.setScope('org');App.repaint()">自組織すべて</button>
+            </div>
+          </div>
+        </div>
+        <div class="tiny muted mt12">${ico('shield', 13)} ${esc(scopeNote)}　集計期間：${dJP(f.from || '')} 〜 ${dJP(f.to || '')}</div>
+        <div class="table-wrap mt12"><table class="tb">
+          <thead><tr>
+            <th>担当者</th><th>担当部署</th>
+            <th class="right">受注件数</th><th class="right">受注金額</th>
+            <th class="right">発注件数</th><th class="right">発注金額</th>
+            <th class="right">入荷件数</th><th class="right">入荷数量</th>
+            <th class="right">出荷件数</th><th class="right">出荷数量</th><th class="right">出荷金額</th>
+          </tr></thead>
+          <tbody>${rows.length ? rows.map(r => `<tr class="${r.unassigned ? 'row-warn' : ''}">
+            <td class="strong">${esc(r.name)}<div class="tiny muted mono">${esc(r.ownerCode || '—')}</div></td>
+            <td class="sm">${esc(r.department || '—')}</td>
+            <td class="num">${num(r.orderCnt)}</td>
+            <td class="num">${money(Math.round(r.orderAmt))}</td>
+            <td class="num">${num(r.poCnt)}</td>
+            <td class="num">${money(Math.round(r.poAmt))}</td>
+            <td class="num">${num(r.rcvCnt)}</td>
+            <td class="num">${num(r.rcvQty)}</td>
+            <td class="num">${num(r.shpCnt)}</td>
+            <td class="num">${num(r.shpQty)}</td>
+            <td class="num">${money(Math.round(r.shpAmt))}</td></tr>`).join('')
+            : `<tr><td colspan="11">${emptyBox('実績がありません', '期間を変更してください')}</td></tr>`}</tbody>
+          ${rows.length ? `<tfoot><tr>
+            <td colspan="2" class="right strong">合計</td>
+            <td class="num strong">${num(sum('orderCnt'))}</td><td class="num strong">${money(Math.round(sum('orderAmt')))}</td>
+            <td class="num strong">${num(sum('poCnt'))}</td><td class="num strong">${money(Math.round(sum('poAmt')))}</td>
+            <td class="num strong">${num(sum('rcvCnt'))}</td><td class="num strong">${num(sum('rcvQty'))}</td>
+            <td class="num strong">${num(sum('shpCnt'))}</td><td class="num strong">${num(sum('shpQty'))}</td>
+            <td class="num strong">${money(Math.round(sum('shpAmt')))}</td></tr></tfoot>` : ''}
+        </table></div>
+        ${top ? `<div class="note green mt12">${ico('trend', 15)} 受注金額トップ：<b>${esc(top.name)}</b>（${money(Math.round(top.orderAmt))}／${num(top.orderCnt)} 件）</div>` : ''}
+      </div>
     </div>
   </div>`;
 };

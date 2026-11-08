@@ -151,6 +151,8 @@ const MENU = [
   ]},
   { group: '受注管理', items: [
     { id: 'orders',     label: '受注一覧',    sub: '受注残・納期管理',    icon: 'file',  roles: ['system_admin','org_admin','manager','user'] },
+    /* 担当者別実績（ver 3.7）: 受注・発注・入荷・出荷を担当者単位で集計 */
+    { id: 'ownerReport', label: '担当者別実績', sub: '担当者ごとの受注・発注・入荷・出荷実績', icon: 'trend', roles: ['system_admin','org_admin','manager','user'] },
     { id: 'customers',  label: '得意先マスタ', sub: '取引先の登録',       icon: 'users', roles: ['system_admin','org_admin','manager'] }
   ]},
   { group: '発注管理', items: [
@@ -340,24 +342,50 @@ const Security = {
    Store.db.auditLogs（既存構造）へ記録する。Supabase接続時は専用テーブル audit_logs
    （sql/03_add_audit_logs.sql）にも保存する（失敗しても他の処理には影響しない）。
    仮パスワード等の機密情報は一切記録しない。 */
-const AUDIT_LABEL = { password_reset: 'パスワードリセット', emergency_login: '緊急管理者ログイン' };
+const AUDIT_LABEL = {
+  password_reset: 'パスワードリセット', emergency_login: '緊急管理者ログイン',
+  owner_change: '担当者変更', role_change: '権限変更'
+};
 const Audit = {
-  /* 記録項目: 実行者（actorLoginId / actorName）・対象ユーザー（targetLoginId / targetName）・実行日時（createdAt）・IPアドレス（ipAddress） */
-  add(action, target, ip) {
+  /* 記録項目: 実行者（actorLoginId / actorName）・対象（targetLoginId / targetName）・
+     内容（detail）・対象伝票（docKind / docNo）・実行日時（createdAt）・IPアドレス（ipAddress） */
+  log(o) {
     try {
       const a = (typeof Auth !== 'undefined' && Auth.user) || {};
+      const x = o || {};
       const row = {
-        id: uid(), action,
+        id: uid(), action: x.action || 'unknown',
         actorLoginId: a.loginId || '', actorName: a.name || '',
-        targetLoginId: (target && target.loginId) || '', targetName: (target && target.name) || '',
-        ipAddress: ip || null, userAgent: String(navigator.userAgent || '').slice(0, 200),
+        targetLoginId: x.targetLoginId || '', targetName: x.targetName || '',
+        detail: x.detail || '', docKind: x.docKind || '', docNo: x.docNo || '',
+        ipAddress: x.ip || null, userAgent: String(navigator.userAgent || '').slice(0, 200),
+        organizationId: (typeof Tenant !== 'undefined') ? Tenant.id() : 1,
         createdAt: new Date().toISOString()
       };
       Store.db.auditLogs = Store.db.auditLogs || [];
-      Store.db.auditLogs.push(row);
+      Store.db.auditLogs.unshift(row);
       if (typeof SB !== 'undefined' && SB.ready && SB.pushAudit) SB.pushAudit(row);
       return row;
     } catch (e) { console.warn('audit log failed', e); return null; }
+  },
+  add(action, target, ip) {
+    return this.log({
+      action, ip,
+      targetLoginId: (target && target.loginId) || '', targetName: (target && target.name) || ''
+    });
+  },
+  /* 担当者変更（ver 3.7）: 「田中 健二 → 山田 太郎」の履歴を残す */
+  ownerChange(kind, rec, fromId, toId) {
+    const d = (typeof OWNER_KIND !== 'undefined' && OWNER_KIND[kind]) || { label: '担当者', noKey: 'id' };
+    const no = (rec && (rec[d.noKey] || rec.id)) || '';
+    const from = fromId ? (typeof Owner !== 'undefined' ? Owner.name(fromId) : fromId) : '未設定';
+    const to = toId ? (typeof Owner !== 'undefined' ? Owner.name(toId) : toId) : '未設定';
+    return this.log({
+      action: 'owner_change',
+      targetLoginId: fromId || '', targetName: from || '',
+      detail: `${d.label}：${from} → ${to}`,
+      docKind: kind, docNo: no
+    });
   },
   /* グローバルIPをベストエフォートで取得（取得できない場合は null → 画面表示は「—」） */
   async fetchIp() {

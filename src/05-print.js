@@ -23,6 +23,10 @@ const Print = {
   /* 帳票共通ヘッダ（タイトル・帳票番号・発行元） */
   head(title, docNo, sub, rec) {
     const ctx = this.ctxOf(rec, this._pv);
+    /* ver 3.7: 担当者表示（テンプレートの「担当者表示」が OFF のときは出力しない） */
+    const ownerName = (typeof Owner !== 'undefined')
+      ? Owner.forDoc((rec && rec.docKind) || '', rec, ctx.template || (this._pv && this._pv.template) || null)
+      : '';
     return `<div class="sheet-head">
       <div><h1>${esc(title)}</h1><div style="font-size:8.5pt;color:#64748b;margin-top:3px">${esc(sub || '')}</div></div>
       ${Issuer.headerHtml(ctx)}
@@ -30,6 +34,7 @@ const Print = {
     <div class="sheet-meta">
       <div class="box"><div class="t">帳票番号</div><div class="v">${esc(docNo)}</div></div>
       <div class="box"><div class="t">発行日</div><div class="v">${dJPfull(TODAY)}</div></div>
+      ${ownerName ? `<div class="box" style="min-width:22%"><div class="t">担当者</div><div class="v">${esc(ownerName)}</div></div>` : ''}
     </div>`;
   },
   foot(rec, docNo, refNo) {
@@ -430,24 +435,24 @@ const Print = {
     };
     if (kind === 'quote' || kind === 'invoice') {
       const id = 'pv_order';
-      db.orders.unshift({ id, orderNo: 'PV-0001', orderDate: TODAY, customerId: cust.id, customerName: cust.name, salesRepId: null, status: 'received', total: 0, remarks: '（プレビュー用サンプル）' });
+      db.orders.unshift({ id, orderNo: 'PV-0001', orderDate: TODAY, customerId: cust.id, customerName: cust.name, salesRepId: null, salesUserId: (typeof Owner !== 'undefined' ? (Owner.candidates()[0] || {}).id || null : null), status: 'received', total: 0, remarks: '（プレビュー用サンプル）' });
       for (let i = 0; i < 3; i++) db.orderLines.push(line(i, { id: 'pv_o_l' + i, orderId: id }));
       return { id };
     }
     if (kind === 'delivery_note' || kind === 'shipping_slip') {
       const id = 'pv_ship';
-      db.shipments.unshift({ id, shipmentNo: 'PV-0001', shipDate: TODAY, customerId: cust.id, customerName: cust.name, shipToName: cust.name, shipToAddr: cust.address || '', status: 'confirmed', carrier: 'ヤマト運輸', trackingNo: '0000-0000-0000', remarks: '' });
+      db.shipments.unshift({ id, shipmentNo: 'PV-0001', shipDate: TODAY, customerId: cust.id, customerName: cust.name, shipToName: cust.name, shipToAddr: cust.address || '', status: 'confirmed', carrier: 'ヤマト運輸', trackingNo: '0000-0000-0000', remarks: '', shipmentUserId: (typeof Owner !== 'undefined' ? (Owner.candidates()[0] || {}).id || null : null) });
       for (let i = 0; i < 3; i++) db.shipmentLines.push(line(i, { id: 'pv_s_l' + i, shipmentId: id }));
       return { id };
     }
     if (kind === 'purchase_order') {
       const id = 'pv_po';
-      db.purchaseOrders.unshift({ id, poNo: 'PV-0001', orderDate: TODAY, expectedDate: TODAY, supplierId: sup.id, supplierName: sup.name, status: 'ordered', total: 0, remarks: '' });
+      db.purchaseOrders.unshift({ id, poNo: 'PV-0001', orderDate: TODAY, expectedDate: TODAY, supplierId: sup.id, supplierName: sup.name, status: 'ordered', total: 0, remarks: '', purchaseUserId: (typeof Owner !== 'undefined' ? (Owner.candidates()[0] || {}).id || null : null) });
       for (let i = 0; i < 3; i++) db.poLines.push(line(i, { id: 'pv_p_l' + i, poId: id }));
       return { id };
     }
     const id = 'pv_rec';
-    db.receipts.unshift({ id, receiptNo: 'PV-0001', receiptDate: TODAY, supplierId: sup.id, supplierName: sup.name, status: 'received', total: 0, remarks: '' });
+    db.receipts.unshift({ id, receiptNo: 'PV-0001', receiptDate: TODAY, supplierId: sup.id, supplierName: sup.name, status: 'received', total: 0, remarks: '', receiptUserId: (typeof Owner !== 'undefined' ? (Owner.candidates()[0] || {}).id || null : null) });
     for (let i = 0; i < 3; i++) db.receiptLines.push(line(i, { id: 'pv_r_l' + i, receiptId: id }));
     return { id };
   },

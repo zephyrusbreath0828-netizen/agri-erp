@@ -9,7 +9,7 @@ const path = require('path');
 const BASE = path.dirname(__dirname);
 const SRC = path.join(BASE, 'src');
 const OUT = path.join(BASE, 'build');
-const FILES = ['00-supabase.js', '01-store.js', '02-core.js', '03-views-a.js', '04-views-b.js', '07-issuer.js', '05-print.js', '08-tpl-editor.js', '06-app.js'];
+const FILES = ['00-supabase.js', '01-store.js', '02-core.js', '03-views-a.js', '04-views-b.js', '07-issuer.js', '05-print.js', '08-tpl-editor.js', '09-owner.js', '06-app.js'];
 
 const envUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '').trim();
 const envKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '').trim();

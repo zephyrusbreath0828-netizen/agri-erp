@@ -18,7 +18,7 @@ SRC = os.path.join(BASE, 'src')
 OUT = os.path.join(BASE, 'build')
 os.makedirs(OUT, exist_ok=True)
 
-FILES = ['00-supabase.js', '01-store.js', '02-core.js', '03-views-a.js', '04-views-b.js', '07-issuer.js', '05-print.js', '08-tpl-editor.js', '06-app.js']
+FILES = ['00-supabase.js', '01-store.js', '02-core.js', '03-views-a.js', '04-views-b.js', '07-issuer.js', '05-print.js', '08-tpl-editor.js', '09-owner.js', '06-app.js']
 
 ENV_URL = os.environ.get('NEXT_PUBLIC_SUPABASE_URL') or os.environ.get('SUPABASE_URL') or ''
 ENV_KEY = os.environ.get('NEXT_PUBLIC_SUPABASE_ANON_KEY') or os.environ.get('SUPABASE_ANON_KEY') or ''
